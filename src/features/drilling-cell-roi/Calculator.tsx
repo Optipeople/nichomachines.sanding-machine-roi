@@ -204,6 +204,17 @@ export function DrillingCellRoiCalculator() {
     return result;
   }, [activeProducts, quantities, operatorHoursPerWeek, eurPerHour, availableShifts]);
 
+  // Clear the selected machine if it is no longer among the offered solutions
+  // (e.g. the user went back and changed the product mix to a different category).
+  useEffect(() => {
+    if (
+      selectedSolutionName &&
+      !displayedSolutions.some((d) => d.solution.name === selectedSolutionName)
+    ) {
+      setSelectedSolutionName(null);
+    }
+  }, [displayedSolutions, selectedSolutionName]);
+
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const name = contact.name.trim();
