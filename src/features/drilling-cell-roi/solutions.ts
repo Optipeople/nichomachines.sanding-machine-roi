@@ -1,9 +1,15 @@
 /**
  * ROI Calculator — Sanding Machine Variants
  *
- * Each entry is a real MOTIMAC / Nicholaisen wide-belt or brush sander.
- * Technical specs (working width, sanding units, abrasive belt, feed speed,
- * power, weight) are taken from the official machine datasheets.
+ * The complete MOTIMAC / Nicholaisen sanding line-up that has an official NM
+ * Ex Work price. Technical specs (working width, sanding units/configuration,
+ * abrasive belt, feed speed, power) are taken from the machine datasheets,
+ * spec sheet (WT_machine_specifications.xlsx) and the sanders overview deck.
+ *
+ * Prices
+ * ------
+ * `investmentEur` = the NM Ex Work price (EUR) from the official price list
+ * (June 2026). These are real list prices, not estimates.
  *
  * Throughput model
  * ----------------
@@ -22,9 +28,6 @@
  *
  * automationOptions: optional add-ons that improve OEE and/or reduce the number
  * of operators (automatic infeed/return, dust extraction, remote monitoring).
- *
- * ⚠ investmentEur values are indicative list-price estimates for ROI ranking
- *   only — confirm against the current Nicholaisen price list before quoting.
  */
 
 import { PRODUCTS } from "./products";
@@ -61,7 +64,7 @@ export type SolutionVariant = {
   /** Antal operatører nødvendigt for at køre maskinen */
   operators: number;
 
-  /** Investeringspris i EUR (ekskl. automatisering) — vejledende estimat */
+  /** NM Ex Work-pris i EUR (officiel prisliste) */
   investmentEur: number;
 
   /** Maks. arbejdsbredde i mm (bruges til at orientere emnet i gennemløbet) */
@@ -138,23 +141,28 @@ const AUTO_DUST: AutomationOption = {
   operatorReduction: 0,
 };
 
-// ── machine line-up (1300 mm series) ────────────────────────────────────────────
+// ── machine line-up (sorted by NM Ex Work price) ────────────────────────────────
+
+// NOTE: The FR650 3D Brush Sander (NM Ex Work €26,386, 635 mm) is intentionally
+// excluded — it is an edge/profile brush sander, not a full-width flat-panel
+// machine, so it would otherwise win the ranking on price and give misleading
+// "best fit" advice for the wide cabinet panels this calculator covers.
 
 export const SOLUTIONS: SolutionVariant[] = [
   {
     name: "WT RR1300V",
     description:
-      "Economy 2-roller calibrating sander (36 kW). Two Ø240 mm contact rollers for reliable thickness calibration and a clean first sanding — the budget entry into the 1300 mm range.",
+      "Standard lacquer / calibrating sander (36 kW). \"Platform+\" modular design with two Ø240 mm contact rollers — low cost, high value for reliable thickness calibration and a clean first sanding. Handles short panels down to 280 mm.",
     image: "/solutions/wt-rr1300v.png",
     oeePercent: 60,
     operators: 1,
-    investmentEur: 28_000,
+    investmentEur: 38_000,
     maxWorkingWidthMm: 1300,
     feedSpeedMpm: 10,
     specs: [
       { label: "Working width", value: "1300 mm" },
-      { label: "Working thickness", value: "3–150 mm" },
-      { label: "Sanding units", value: "2 × roller Ø240 (26 HA)" },
+      { label: "Min. work length", value: "280 mm" },
+      { label: "Sanding units", value: "2 × roller Ø240 (26 sh)" },
       { label: "Abrasive belt", value: "1330 × 2620 mm" },
       { label: "Feed speed", value: "5–30 m/min" },
       { label: "Total power", value: "36 kW" },
@@ -164,63 +172,19 @@ export const SOLUTIONS: SolutionVariant[] = [
   },
 
   {
-    name: "WT RC1300",
-    description:
-      "2-unit calibrate + pad-finish sander (61 kW). A steel contact roller for calibration followed by a Ø170 mm roller + sanding pad for a fine, even finishing pass in a single pass.",
-    image: "/solutions/wt-rc1300.png",
-    oeePercent: 65,
-    operators: 1,
-    investmentEur: 34_000,
-    maxWorkingWidthMm: 1300,
-    feedSpeedMpm: 12,
-    specs: [
-      { label: "Working width", value: "1300 mm" },
-      { label: "Min. work length", value: "490 mm" },
-      { label: "Sanding units", value: "Roller Ø240 + Ø170 + pad" },
-      { label: "Abrasive belt", value: "1350 × 2620 mm" },
-      { label: "Feed speed", value: "5–24 m/min" },
-      { label: "Total power", value: "61 kW" },
-    ],
-    processingTimeSec: buildTimes(12, 1300),
-    automationOptions: [AUTO_INFEED_RETURN, AUTO_DUST, AUTO_MONITORING],
-  },
-
-  {
-    name: "WT RR1300",
-    description:
-      "Heavy-duty 2-roller calibrating sander (65 kW). Steel + 80-shore contact rollers (Ø240) for aggressive stock removal and accurate calibration of solid wood, plywood and MDF.",
-    image: "/solutions/wt-rr1300.png",
-    oeePercent: 65,
-    operators: 1,
-    investmentEur: 38_000,
-    maxWorkingWidthMm: 1300,
-    feedSpeedMpm: 10,
-    specs: [
-      { label: "Working width", value: "1300 mm" },
-      { label: "Min. work length", value: "280 mm" },
-      { label: "Sanding units", value: "2 × roller Ø240 (Steel/80sh)" },
-      { label: "Abrasive belt", value: "1350 × 2620 mm" },
-      { label: "Feed speed", value: "5–24 m/min" },
-      { label: "Total power", value: "65 kW" },
-    ],
-    processingTimeSec: buildTimes(10, 1300),
-    automationOptions: [AUTO_INFEED_RETURN, AUTO_MONITORING],
-  },
-
-  {
     name: "WT RRC1300",
     description:
-      "3-unit calibrate + fine-finish sander (84 kW). Two contact rollers (Steel/80sh) plus a Ø170 mm roller + pad (55sh) — calibration and a high-quality finish on the same machine. The best all-round choice.",
+      "WT-series calibrate + fine-finish sander (84 kW). Steel contact roller + rubber roller + combination finishing head (Ø170 + pad) — calibration and a high-quality finish on the same machine. The best all-round choice for flat panels.",
     image: "/solutions/wt-rrc1300.png",
     oeePercent: 70,
     operators: 1,
-    investmentEur: 54_000,
+    investmentEur: 53_640,
     maxWorkingWidthMm: 1300,
     feedSpeedMpm: 14,
     specs: [
       { label: "Working width", value: "1300 mm" },
       { label: "Min. work length", value: "490 mm" },
-      { label: "Sanding units", value: "Ø240 / Ø240 / Ø170 + pad" },
+      { label: "Sanding units", value: "Steel + rubber + combi head" },
       { label: "Abrasive belt", value: "1350 × 2620 mm" },
       { label: "Feed speed", value: "5–24 m/min" },
       { label: "Total power", value: "84 kW" },
@@ -230,35 +194,13 @@ export const SOLUTIONS: SolutionVariant[] = [
   },
 
   {
-    name: "WT RRR1300",
-    description:
-      "3-roller maximum-removal sander (84 kW). Three contact rollers (Steel/80sh/55sh) for the highest stock-removal and throughput where heavy calibration is the priority.",
-    image: "/solutions/wt-rrr1300.png",
-    oeePercent: 70,
-    operators: 1,
-    investmentEur: 52_000,
-    maxWorkingWidthMm: 1300,
-    feedSpeedMpm: 12,
-    specs: [
-      { label: "Working width", value: "1300 mm" },
-      { label: "Min. work length", value: "280 mm" },
-      { label: "Sanding units", value: "3 × roller Ø240" },
-      { label: "Abrasive belt", value: "1350 × 2620 mm" },
-      { label: "Feed speed", value: "5–24 m/min" },
-      { label: "Total power", value: "84 kW" },
-    ],
-    processingTimeSec: buildTimes(12, 1300),
-    automationOptions: [AUTO_INFEED_RETURN, AUTO_MONITORING],
-  },
-
-  {
     name: "FHDR1300 Brush Sander",
     description:
-      "Brush + disc + roller finishing sander (20 kW) for profiled surfaces. FH brush rollers, FD oscillating disc heads and FR rollers with Danish Flex&Trim brushes — for raised-panel doors, mouldings and primer sanding that flat sanders cannot reach.",
+      "Three-unit brush + disc + roller sander (20 kW) for profiled doors and primer sanding. FH brush rollers, FD oscillating disc heads and FR rollers with Danish Flex&Trim brushes — reaches raised panels, mouldings and corner grooves flat sanders miss.",
     image: "/solutions/fhdr1300.png",
     oeePercent: 65,
     operators: 1,
-    investmentEur: 62_000,
+    investmentEur: 68_435,
     maxWorkingWidthMm: 1300,
     feedSpeedMpm: 6,
     specs: [
@@ -271,5 +213,49 @@ export const SOLUTIONS: SolutionVariant[] = [
     ],
     processingTimeSec: buildTimes(6, 1300),
     automationOptions: [AUTO_INFEED_RETURN, AUTO_MONITORING],
+  },
+
+  {
+    name: "WT RRHG1300",
+    description:
+      "Segmented-pad finishing sander. Steel roller + rubber roller + 80-section electronic segmented pad on a 2620 mm belt — the segmented head fits the board surface even with curvature or warping for an even, high-grade veneer finish.",
+    image: "/solutions/wt-rrhg1300.png",
+    oeePercent: 72,
+    operators: 1,
+    investmentEur: 93_976,
+    maxWorkingWidthMm: 1300,
+    feedSpeedMpm: 8,
+    specs: [
+      { label: "Working width", value: "1300 mm" },
+      { label: "Abrasive belt", value: "2620 mm" },
+      { label: "Sanding units", value: "Roller + rubber + 80-section pad" },
+      { label: "Segmented pad", value: "80-section electronic" },
+      { label: "Feed speed", value: "5–24 m/min" },
+      { label: "Best for", value: "Even veneer / lacquer finish" },
+    ],
+    processingTimeSec: buildTimes(8, 1300),
+    automationOptions: [AUTO_INFEED_RETURN, AUTO_DUST, AUTO_MONITORING],
+  },
+
+  {
+    name: "MT TRHG1300",
+    description:
+      "Top-of-range segmented-pad sander with an 80-section electronic system and a 3250 mm belt. Cross belt + roller + super-finish + scotch-brite units realise diverse veneer effects (semi-open, zig-zag, matte, high-gloss) without manual intervention — for premium doors and furniture.",
+    image: "/solutions/mt-trhg1300.png",
+    oeePercent: 75,
+    operators: 1,
+    investmentEur: 154_868,
+    maxWorkingWidthMm: 1300,
+    feedSpeedMpm: 6,
+    specs: [
+      { label: "Working width", value: "1300 mm" },
+      { label: "Abrasive belt", value: "3250 mm" },
+      { label: "Sanding units", value: "Cross belt + roller + super-finish + scotch-brite" },
+      { label: "Segmented pad", value: "80-section electronic" },
+      { label: "Feed speed", value: "5–24 m/min" },
+      { label: "Best for", value: "Premium veneer effects" },
+    ],
+    processingTimeSec: buildTimes(6, 1300),
+    automationOptions: [AUTO_INFEED_RETURN, AUTO_DUST, AUTO_MONITORING],
   },
 ];
