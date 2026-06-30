@@ -718,14 +718,18 @@ export function DrillingCellRoiCalculator() {
                     </span>
                   )}
 
-                  {/* Machine image */}
+                  {/* Machine image — hidden gracefully until the photo is added to /public/solutions */}
                   {solution.image ? (
-                    <div className="mb-3 -mx-4 -mt-4 overflow-hidden rounded-t-xl bg-[var(--color-cream-50)]">
+                    <div className="mb-3 -mx-4 -mt-4 overflow-hidden rounded-t-xl bg-[var(--color-cream-50)] empty:hidden">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={solution.image}
                         alt={solution.name}
                         className="h-36 w-full object-contain px-4 py-3"
+                        onError={(ev) => {
+                          const img = ev.currentTarget;
+                          img.parentElement?.remove();
+                        }}
                       />
                     </div>
                   ) : null}
@@ -740,6 +744,18 @@ export function DrillingCellRoiCalculator() {
                   <p className="pr-6 text-sm font-semibold leading-snug text-[var(--color-ink-900)]">{solution.name}</p>
                   {solution.description && (
                     <p className="mt-2 text-xs leading-relaxed text-[var(--color-ink-500)]">{solution.description}</p>
+                  )}
+
+                  {/* Technical specs from the datasheet */}
+                  {solution.specs && solution.specs.length > 0 && (
+                    <dl className="mt-4 grid gap-1.5 border-t border-[var(--color-paper-dark)] pt-3">
+                      {solution.specs.map((spec) => (
+                        <div key={spec.label} className="flex items-baseline justify-between gap-2">
+                          <dt className="text-xs text-[var(--color-slate-500)]">{spec.label}</dt>
+                          <dd className="text-xs font-medium text-[var(--color-ink-700)] text-right">{spec.value}</dd>
+                        </div>
+                      ))}
+                    </dl>
                   )}
 
                   {/* Core metrics */}
@@ -766,13 +782,13 @@ export function DrillingCellRoiCalculator() {
           {/* Automation note */}
           <div className="mt-4 rounded-lg border border-[var(--color-paper-dark)] bg-[var(--color-paper)] px-5 py-4">
             <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-slate-500)]">
-              Cell Automation Add-on
+              Line Automation Add-on
             </p>
             <p className="mt-2 text-sm leading-relaxed text-[var(--color-ink-500)]">
-              All solutions above can be extended with automated cell integration — typically delivering a{" "}
+              All machines above can be extended with automated line integration — typically delivering a{" "}
               <span className="font-semibold text-[var(--color-ink-900)]">10–20% improvement in OEE</span>{" "}
-              through reduced idle time, automated loading/unloading, and real-time monitoring.
-              Our team will include this option in the personalised proposal sent to you.
+              through automatic infeed &amp; return conveyors, integrated dust extraction, and real-time
+              production monitoring. Our team will include this option in the personalised proposal sent to you.
             </p>
           </div>
 

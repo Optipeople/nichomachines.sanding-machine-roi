@@ -1,13 +1,33 @@
 /**
- * ROI Calculator — Solution Variants
+ * ROI Calculator — Sanding Machine Variants
  *
- * Add one entry per løsningsforslag i SOLUTIONS-arrayet.
- * Hvert produkt-id matcher id-feltet i products.ts.
- * processingTimeSec: maskintid i sekunder pr. emne (0 = produktet bearbejdes ikke i denne løsning).
+ * Each entry is a real MOTIMAC / Nicholaisen wide-belt or brush sander.
+ * Technical specs (working width, sanding units, abrasive belt, feed speed,
+ * power, weight) are taken from the official machine datasheets.
  *
- * automationOptions: valgfrie tilkøb der forbedrer OEE og/eller reducerer operatørbehov.
- * Hvert option summeres til investering og OEE, når kunden vælger det i trin 3.
+ * Throughput model
+ * ----------------
+ * A wide-belt / brush sander is a through-feed machine: the cycle time per
+ * workpiece is driven by the panel length and the feed speed (m/min), NOT by a
+ * fixed per-product number. We therefore derive `processingTimeSec` for every
+ * product from its real size (products.ts) and the machine's effective feed
+ * speed, so the calculator always stays in sync with the product list.
+ *
+ *   cycle = (feedLength + FEED_GAP) / feedSpeed
+ *
+ * The workpiece is oriented so its longest planar edge runs across the belt
+ * whenever it fits within the machine's working width; the remaining (shorter)
+ * edge then becomes the feed length. If the longest edge exceeds the working
+ * width it must run along the feed direction instead.
+ *
+ * automationOptions: optional add-ons that improve OEE and/or reduce the number
+ * of operators (automatic infeed/return, dust extraction, remote monitoring).
+ *
+ * ⚠ investmentEur values are indicative list-price estimates for ROI ranking
+ *   only — confirm against the current Nicholaisen price list before quoting.
  */
+
+import { PRODUCTS } from "./products";
 
 export type AutomationOption = {
   /** Kort navn vist i UI */
@@ -22,14 +42,17 @@ export type AutomationOption = {
   operatorReduction: number;
 };
 
+/** En enkelt teknisk specifikation vist på løsningskortet */
+export type MachineSpec = { label: string; value: string };
+
 export type SolutionVariant = {
-  /** Løsningens navn, f.eks. "Drilling Cell Standard" */
+  /** Maskinens navn, f.eks. "WT RRC1300" */
   name: string;
 
-  /** Kort beskrivelse vist i trin 3 — hvad kendetegner løsningen */
+  /** Kort beskrivelse vist i trin 3 — hvad kendetegner maskinen */
   description: string;
 
-  /** Valgfrit billede af maskinen — sti relativt til /public, fx "/solutions/double-machine.png" */
+  /** Valgfrit billede af maskinen — sti relativt til /public, fx "/solutions/wt-rrc1300.png" */
   image?: string;
 
   /** Forventet OEE i procent (0–100) */
@@ -38,143 +61,215 @@ export type SolutionVariant = {
   /** Antal operatører nødvendigt for at køre maskinen */
   operators: number;
 
-  /** Investeringspris i EUR (ekskl. automatisering) */
+  /** Investeringspris i EUR (ekskl. automatisering) — vejledende estimat */
   investmentEur: number;
 
-  /** Maskintid i sekunder pr. emne for hvert produkt-id */
+  /** Maks. arbejdsbredde i mm (bruges til at orientere emnet i gennemløbet) */
+  maxWorkingWidthMm: number;
+
+  /** Effektiv produktions-fremføringshastighed i m/min (typisk under maks.) */
+  feedSpeedMpm: number;
+
+  /** Nøglespecifikationer fra databladet, vist på kortet */
+  specs: MachineSpec[];
+
+  /** Maskintid i sekunder pr. emne for hvert produkt-id (udledt af feedSpeedMpm) */
   processingTimeSec: Record<string, number>;
 
   /** Valgfrie automatiseringstilkøb */
   automationOptions?: AutomationOption[];
 };
 
+// ── throughput helper ─────────────────────────────────────────────────────────
+
+/** Mellemrum/håndteringstillæg mellem emner i gennemløbet (m). */
+const FEED_GAP_M = 0.4;
+
+/** Træk de to plane mål (længde × bredde) ud af en størrelse som "397.5 × 779 × 19 mm". */
+function planarDims(size: string): [number, number] {
+  const nums = (size.match(/[\d.]+/g) ?? []).map(Number);
+  return [nums[0] ?? 0, nums[1] ?? 0];
+}
+
+/** Cyklustid i sekunder for ét emne ved given fremføringshastighed. */
+function cycleTimeSec(size: string, feedSpeedMpm: number, maxWidthMm: number): number {
+  const [a, b] = planarDims(size);
+  const small = Math.min(a, b);
+  const large = Math.max(a, b);
+  // Orientér længste kant på tværs af båndet hvis den passer → kortest fremføring.
+  const feedLengthMm = large <= maxWidthMm ? small : large;
+  if (feedSpeedMpm <= 0) return 0;
+  return ((feedLengthMm / 1000 + FEED_GAP_M) / feedSpeedMpm) * 60;
+}
+
+/** Byg processingTimeSec-mappet for alle produkter ud fra maskinens feed speed. */
+function buildTimes(feedSpeedMpm: number, maxWidthMm: number): Record<string, number> {
+  return Object.fromEntries(
+    PRODUCTS.map((p) => [p.id, Math.max(1, Math.round(cycleTimeSec(p.size, feedSpeedMpm, maxWidthMm)))]),
+  );
+}
+
+// ── automation add-ons (genbruges på tværs af maskiner) ─────────────────────────
+
+const AUTO_INFEED_RETURN: AutomationOption = {
+  name: "Automatic infeed & return conveyor",
+  description:
+    "Powered infeed and return-to-operator conveyor — one operator both loads and unloads, eliminating walk-around handling.",
+  priceEur: 18_000,
+  oeeBoostPct: 10,
+  operatorReduction: 0.5,
+};
+
+const AUTO_MONITORING: AutomationOption = {
+  name: "Production monitoring (Siemens PLC, remote)",
+  description:
+    "Siemens PLC with remote master control — live throughput, downtime and abrasive-belt life tracking on the 10\" touch screen.",
+  priceEur: 6_000,
+  oeeBoostPct: 5,
+  operatorReduction: 0,
+};
+
+const AUTO_DUST: AutomationOption = {
+  name: "Integrated dust-extraction package",
+  description:
+    "Air-jet belt cleaning hood + extraction sized to the machine — cleaner abrasive belts, longer belt life and a dust-free surface into the next process.",
+  priceEur: 9_000,
+  oeeBoostPct: 5,
+  operatorReduction: 0,
+};
+
+// ── machine line-up (1300 mm series) ────────────────────────────────────────────
+
 export const SOLUTIONS: SolutionVariant[] = [
   {
-    name: "Single Machine - Single Side Drilling",
-    description: "A single machine with one drilling unita and manual in/outfeed.",
-    image: "/solutions/Single-Machine-Single-side-drilling.png",
+    name: "WT RR1300V",
+    description:
+      "Economy 2-roller calibrating sander (36 kW). Two Ø240 mm contact rollers for reliable thickness calibration and a clean first sanding — the budget entry into the 1300 mm range.",
+    image: "/solutions/wt-rr1300v.png",
     oeePercent: 60,
     operators: 1,
-    investmentEur: 68_000,
-    processingTimeSec: {
-      "Special Milling Panel":   45,
-      "Sliding Door":            60,
-      "Hinge Door":              55,
-      "Fixed Shelf":             30,
-      "Tall Cabinet Side":       90,
-      "Middle Base w/ Groove":   40,
-      "Plinth Front":            25,
-      "Drawer Front":            35,
-      "Cabinet Side":            50,
-    },
-    automationOptions: [
-      {
-        name: "Automatic Loading / Unloading",
-        description: "Conveyor-based panel feed and discharge — eliminates manual handling between operations.",
-        priceEur: 25_000,
-        oeeBoostPct: 10,
-        operatorReduction: 0.5,
-      },
-      {
-        name: "Real-time Production Monitoring",
-        description: "OPC-UA integration with live dashboard for cycle times, downtime, and throughput.",
-        priceEur: 8_000,
-        oeeBoostPct: 5,
-        operatorReduction: 0,
-      },
+    investmentEur: 28_000,
+    maxWorkingWidthMm: 1300,
+    feedSpeedMpm: 10,
+    specs: [
+      { label: "Working width", value: "1300 mm" },
+      { label: "Working thickness", value: "3–150 mm" },
+      { label: "Sanding units", value: "2 × roller Ø240 (26 HA)" },
+      { label: "Abrasive belt", value: "1330 × 2620 mm" },
+      { label: "Feed speed", value: "5–30 m/min" },
+      { label: "Total power", value: "36 kW" },
     ],
+    processingTimeSec: buildTimes(10, 1300),
+    automationOptions: [AUTO_INFEED_RETURN, AUTO_MONITORING],
   },
 
   {
-    name: "Single Machine - Double Side Drilling",
-    description: "One machine with double drilling units for increased capacity. Comes with manual in/outfeed",
-    image: "/solutions/Single-Machine-double-side-drilling.png",
-    oeePercent: 60,
+    name: "WT RC1300",
+    description:
+      "2-unit calibrate + pad-finish sander (61 kW). A steel contact roller for calibration followed by a Ø170 mm roller + sanding pad for a fine, even finishing pass in a single pass.",
+    image: "/solutions/wt-rc1300.png",
+    oeePercent: 65,
     operators: 1,
-    investmentEur: 98_000,
-    processingTimeSec: {
-      "Special Milling Panel":   35,
-      "Sliding Door":            45,
-      "Hinge Door":              42,
-      "Fixed Shelf":             23,
-      "Tall Cabinet Side":       68,
-      "Middle Base w/ Groove":   30,
-      "Plinth Front":            20,
-      "Drawer Front":            27,
-      "Cabinet Side":            38,
-    },
-    automationOptions: [
-      {
-        name: "Automatic Loading / Unloading",
-        description: "Conveyor-based panel feed and discharge — eliminates manual handling between operations.",
-        priceEur: 25_000,
-        oeeBoostPct: 10,
-        operatorReduction: 0.5,
-      },
-      {
-        name: "Real-time Production Monitoring",
-        description: "OPC-UA integration with live dashboard for cycle times, downtime, and throughput.",
-        priceEur: 8_000,
-        oeeBoostPct: 5,
-        operatorReduction: 0,
-      },
+    investmentEur: 34_000,
+    maxWorkingWidthMm: 1300,
+    feedSpeedMpm: 12,
+    specs: [
+      { label: "Working width", value: "1300 mm" },
+      { label: "Min. work length", value: "490 mm" },
+      { label: "Sanding units", value: "Roller Ø240 + Ø170 + pad" },
+      { label: "Abrasive belt", value: "1350 × 2620 mm" },
+      { label: "Feed speed", value: "5–24 m/min" },
+      { label: "Total power", value: "61 kW" },
     ],
+    processingTimeSec: buildTimes(12, 1300),
+    automationOptions: [AUTO_INFEED_RETURN, AUTO_DUST, AUTO_MONITORING],
   },
 
   {
-    name: "Double Machine - Double Side Drilling",
-    description: "Two parallel double-side drilling units running simultaneously. Manual In/outfeed.",
-    image: "/solutions/double-machine-double-side.png",
-    oeePercent: 60,
-    operators: 2,
-    investmentEur: 140_000,
-    processingTimeSec: {
-      "Special Milling Panel":   23,
-      "Sliding Door":            30,
-      "Hinge Door":              28,
-      "Fixed Shelf":             15,
-      "Tall Cabinet Side":       45,
-      "Middle Base w/ Groove":   20,
-      "Plinth Front":            13,
-      "Drawer Front":            18,
-      "Cabinet Side":            25,
-    },
-    automationOptions: [
-      {
-        name: "Automatic Loading / Unloading",
-        description: "Conveyor-based panel feed and discharge — eliminates manual handling between operations.",
-        priceEur: 35_000,
-        oeeBoostPct: 10,
-        operatorReduction: 1,
-      },
-      {
-        name: "Real-time Production Monitoring",
-        description: "OPC-UA integration with live dashboard for cycle times, downtime, and throughput.",
-        priceEur: 8_000,
-        oeeBoostPct: 5,
-        operatorReduction: 0,
-      },
+    name: "WT RR1300",
+    description:
+      "Heavy-duty 2-roller calibrating sander (65 kW). Steel + 80-shore contact rollers (Ø240) for aggressive stock removal and accurate calibration of solid wood, plywood and MDF.",
+    image: "/solutions/wt-rr1300.png",
+    oeePercent: 65,
+    operators: 1,
+    investmentEur: 38_000,
+    maxWorkingWidthMm: 1300,
+    feedSpeedMpm: 10,
+    specs: [
+      { label: "Working width", value: "1300 mm" },
+      { label: "Min. work length", value: "280 mm" },
+      { label: "Sanding units", value: "2 × roller Ø240 (Steel/80sh)" },
+      { label: "Abrasive belt", value: "1350 × 2620 mm" },
+      { label: "Feed speed", value: "5–24 m/min" },
+      { label: "Total power", value: "65 kW" },
     ],
+    processingTimeSec: buildTimes(10, 1300),
+    automationOptions: [AUTO_INFEED_RETURN, AUTO_MONITORING],
   },
 
-   {
-     name: "Double Machine - Double Side Drilling, Full Automation",
-     description: "Two parallel double-side drilling units running simultaneously. With full automized return transportation and robot in/outfeed",
-     image: "/solutions/double-machine-double-side-drilling-Full-Automation.png",
-     oeePercent: 80,
-     operators: 1,
-     investmentEur: 220_000,
-     processingTimeSec: {
-       "Special Milling Panel":   23,
-       "Sliding Door":            30,
-       "Hinge Door":              28,
-       "Fixed Shelf":             15,
-       "Tall Cabinet Side":       45,
-       "Middle Base w/ Groove":   20,
-       "Plinth Front":            13,
-       "Drawer Front":            18,
-       "Cabinet Side":            25,
-     },
-     automationOptions: [],
-   },
+  {
+    name: "WT RRC1300",
+    description:
+      "3-unit calibrate + fine-finish sander (84 kW). Two contact rollers (Steel/80sh) plus a Ø170 mm roller + pad (55sh) — calibration and a high-quality finish on the same machine. The best all-round choice.",
+    image: "/solutions/wt-rrc1300.png",
+    oeePercent: 70,
+    operators: 1,
+    investmentEur: 54_000,
+    maxWorkingWidthMm: 1300,
+    feedSpeedMpm: 14,
+    specs: [
+      { label: "Working width", value: "1300 mm" },
+      { label: "Min. work length", value: "490 mm" },
+      { label: "Sanding units", value: "Ø240 / Ø240 / Ø170 + pad" },
+      { label: "Abrasive belt", value: "1350 × 2620 mm" },
+      { label: "Feed speed", value: "5–24 m/min" },
+      { label: "Total power", value: "84 kW" },
+    ],
+    processingTimeSec: buildTimes(14, 1300),
+    automationOptions: [AUTO_INFEED_RETURN, AUTO_DUST, AUTO_MONITORING],
+  },
+
+  {
+    name: "WT RRR1300",
+    description:
+      "3-roller maximum-removal sander (84 kW). Three contact rollers (Steel/80sh/55sh) for the highest stock-removal and throughput where heavy calibration is the priority.",
+    image: "/solutions/wt-rrr1300.png",
+    oeePercent: 70,
+    operators: 1,
+    investmentEur: 52_000,
+    maxWorkingWidthMm: 1300,
+    feedSpeedMpm: 12,
+    specs: [
+      { label: "Working width", value: "1300 mm" },
+      { label: "Min. work length", value: "280 mm" },
+      { label: "Sanding units", value: "3 × roller Ø240" },
+      { label: "Abrasive belt", value: "1350 × 2620 mm" },
+      { label: "Feed speed", value: "5–24 m/min" },
+      { label: "Total power", value: "84 kW" },
+    ],
+    processingTimeSec: buildTimes(12, 1300),
+    automationOptions: [AUTO_INFEED_RETURN, AUTO_MONITORING],
+  },
+
+  {
+    name: "FHDR1300 Brush Sander",
+    description:
+      "Brush + disc + roller finishing sander (20 kW) for profiled surfaces. FH brush rollers, FD oscillating disc heads and FR rollers with Danish Flex&Trim brushes — for raised-panel doors, mouldings and primer sanding that flat sanders cannot reach.",
+    image: "/solutions/fhdr1300.png",
+    oeePercent: 65,
+    operators: 1,
+    investmentEur: 62_000,
+    maxWorkingWidthMm: 1300,
+    feedSpeedMpm: 6,
+    specs: [
+      { label: "Working width", value: "1300 mm" },
+      { label: "Working thickness", value: "3–120 mm" },
+      { label: "Sanding units", value: "FH 2+2 brush · FD 6+6 disc · FR 1+1" },
+      { label: "Brushes", value: "Danish Flex&Trim" },
+      { label: "Feed speed", value: "3–17 m/min" },
+      { label: "Total power", value: "20 kW" },
+    ],
+    processingTimeSec: buildTimes(6, 1300),
+    automationOptions: [AUTO_INFEED_RETURN, AUTO_MONITORING],
+  },
 ];

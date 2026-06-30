@@ -263,6 +263,7 @@ function buildHtml(data: {
         <td colspan="2" style="padding:12px 10px 4px;">
           <div style="font-size:14px;font-weight:700;color:#0e2238;">${e(s.name)}</div>
           <div style="font-size:12px;color:#7a8a9a;margin:2px 0 6px;">${e(s.description)}</div>
+          ${s.specs && s.specs.length > 0 ? `<div style="font-size:11px;color:#5a7c9a;margin:0 0 6px;">${s.specs.map((sp) => e(sp.label) + ": " + e(sp.value)).join(" &nbsp;·&nbsp; ")}</div>` : ""}
           ${feasibleChip} ${labelChips}
           ${isSelected ? '<span style="' + CSS.chip + 'background:#dbeafe;color:#1e40af;">&#10003; Kundens valg</span>' : ""}
         </td>
@@ -376,7 +377,7 @@ export async function GET() {
     operatorHoursPerWeek: 120,
     availableShifts: 1,
     country: "DK",
-    selectedSolution: { name: "Single Machine - Double Side Drilling", automationOptions: [] },
+    selectedSolution: { name: "WT RRC1300", automationOptions: [] },
     submittedAt: "mandag den 26. maj 2026 kl. 10.34",
   });
   return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
