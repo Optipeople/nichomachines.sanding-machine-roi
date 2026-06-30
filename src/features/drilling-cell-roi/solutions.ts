@@ -73,6 +73,9 @@ export type SolutionVariant = {
   /** Maks. arbejdsbredde i mm (bruges til at orientere emnet i gennemløbet) */
   maxWorkingWidthMm: number;
 
+  /** Min. arbejdslængde i mm — emner kortere end dette i fremføringsretningen kan ikke føres sikkert igennem */
+  minWorkLengthMm: number;
+
   /** Effektiv produktions-fremføringshastighed i m/min (typisk under maks.) */
   feedSpeedMpm: number;
 
@@ -97,22 +100,53 @@ function planarDims(size: string): [number, number] {
   return [nums[0] ?? 0, nums[1] ?? 0];
 }
 
-/** Cyklustid i sekunder for ét emne ved given fremføringshastighed. */
-function cycleTimeSec(size: string, feedSpeedMpm: number, maxWidthMm: number): number {
+/**
+ * Fremføringslængden (mm) i den bedste gyldige orientering, eller null hvis
+ * emnet ikke kan føres igennem maskinen.
+ *
+ * Emnet kan vendes på to måder:
+ *   B) korteste kant i fremføringen (længste på tværs) — kræver længste ≤ bredde
+ *      OG korteste ≥ min. længde. Giver den korteste fremføring (bedst kapacitet).
+ *   A) længste kant i fremføringen (korteste på tværs) — kræver længste ≥ min. længde.
+ * Passer ingen af dem, er emnet for kort (eller for bredt) til maskinen.
+ */
+function feedLengthMm(size: string, maxWidthMm: number, minWorkLengthMm: number): number | null {
   const [a, b] = planarDims(size);
   const small = Math.min(a, b);
   const large = Math.max(a, b);
-  // Orientér længste kant på tværs af båndet hvis den passer → kortest fremføring.
-  const feedLengthMm = large <= maxWidthMm ? small : large;
-  if (feedSpeedMpm <= 0) return 0;
-  return ((feedLengthMm / 1000 + FEED_GAP_M) / feedSpeedMpm) * 60;
+  if (large <= maxWidthMm && small >= minWorkLengthMm) return small; // orientering B
+  if (small <= maxWidthMm && large >= minWorkLengthMm) return large; // orientering A
+  return null; // kan ikke føres igennem
 }
 
-/** Byg processingTimeSec-mappet for alle produkter ud fra maskinens feed speed. */
-function buildTimes(feedSpeedMpm: number, maxWidthMm: number): Record<string, number> {
+/** Cyklustid i sekunder for én fremføringslængde ved given hastighed. */
+function cycleTimeSec(feedLenMm: number, feedSpeedMpm: number): number {
+  if (feedSpeedMpm <= 0) return 0;
+  return ((feedLenMm / 1000 + FEED_GAP_M) / feedSpeedMpm) * 60;
+}
+
+/**
+ * Byg processingTimeSec-mappet for alle produkter ud fra maskinens feed speed.
+ * For emner maskinen ikke kan føre (feedLengthMm === null) bruges længste mål
+ * som worst-case tid — maskinen udelukkes alligevel af canProcess.
+ */
+function buildTimes(feedSpeedMpm: number, maxWidthMm: number, minWorkLengthMm: number): Record<string, number> {
   return Object.fromEntries(
-    PRODUCTS.map((p) => [p.id, Math.max(1, Math.round(cycleTimeSec(p.size, feedSpeedMpm, maxWidthMm)))]),
+    PRODUCTS.map((p) => {
+      const fl = feedLengthMm(p.size, maxWidthMm, minWorkLengthMm);
+      const lenForTime = fl ?? Math.max(...planarDims(p.size));
+      return [p.id, Math.max(1, Math.round(cycleTimeSec(lenForTime, feedSpeedMpm)))];
+    }),
   );
+}
+
+/** Kan maskinen bearbejde emnet? Kræver både rette kategori og at det kan føres igennem. */
+export function canProcess(
+  s: SolutionVariant,
+  p: { size: string; category: ProductCategory },
+): boolean {
+  if (!s.handles.includes(p.category)) return false;
+  return feedLengthMm(p.size, s.maxWorkingWidthMm, s.minWorkLengthMm) !== null;
 }
 
 // ── automation add-ons (genbruges på tværs af maskiner) ─────────────────────────
@@ -157,6 +191,7 @@ export const SOLUTIONS: SolutionVariant[] = [
     investmentEur: 26_386,
     handles: ["profiled"],
     maxWorkingWidthMm: 635,
+    minWorkLengthMm: 380,
     feedSpeedMpm: 6,
     specs: [
       { label: "Working width", value: "635 mm (25\")" },
@@ -166,7 +201,7 @@ export const SOLUTIONS: SolutionVariant[] = [
       { label: "Total power", value: "≈ 11.5 kW (15.5 hp)" },
       { label: "Best for", value: "Edges & profiles" },
     ],
-    processingTimeSec: buildTimes(6, 635),
+    processingTimeSec: buildTimes(6, 635, 380),
     automationOptions: [AUTO_MONITORING],
   },
 
@@ -180,6 +215,7 @@ export const SOLUTIONS: SolutionVariant[] = [
     investmentEur: 38_000,
     handles: ["flat"],
     maxWorkingWidthMm: 1300,
+    minWorkLengthMm: 280,
     feedSpeedMpm: 10,
     specs: [
       { label: "Working width", value: "1300 mm" },
@@ -189,7 +225,7 @@ export const SOLUTIONS: SolutionVariant[] = [
       { label: "Feed speed", value: "5–30 m/min" },
       { label: "Total power", value: "36 kW" },
     ],
-    processingTimeSec: buildTimes(10, 1300),
+    processingTimeSec: buildTimes(10, 1300, 280),
     automationOptions: [AUTO_INFEED_RETURN, AUTO_MONITORING],
   },
 
@@ -203,6 +239,7 @@ export const SOLUTIONS: SolutionVariant[] = [
     investmentEur: 53_640,
     handles: ["flat"],
     maxWorkingWidthMm: 1300,
+    minWorkLengthMm: 490,
     feedSpeedMpm: 14,
     specs: [
       { label: "Working width", value: "1300 mm" },
@@ -212,7 +249,7 @@ export const SOLUTIONS: SolutionVariant[] = [
       { label: "Feed speed", value: "5–24 m/min" },
       { label: "Total power", value: "84 kW" },
     ],
-    processingTimeSec: buildTimes(14, 1300),
+    processingTimeSec: buildTimes(14, 1300, 490),
     automationOptions: [AUTO_INFEED_RETURN, AUTO_DUST, AUTO_MONITORING],
   },
 
@@ -226,6 +263,7 @@ export const SOLUTIONS: SolutionVariant[] = [
     investmentEur: 68_435,
     handles: ["flat", "profiled"],
     maxWorkingWidthMm: 1300,
+    minWorkLengthMm: 460,
     feedSpeedMpm: 6,
     specs: [
       { label: "Working width", value: "1300 mm" },
@@ -235,7 +273,7 @@ export const SOLUTIONS: SolutionVariant[] = [
       { label: "Feed speed", value: "3–17 m/min" },
       { label: "Total power", value: "20 kW" },
     ],
-    processingTimeSec: buildTimes(6, 1300),
+    processingTimeSec: buildTimes(6, 1300, 460),
     automationOptions: [AUTO_INFEED_RETURN, AUTO_MONITORING],
   },
 
@@ -249,6 +287,7 @@ export const SOLUTIONS: SolutionVariant[] = [
     investmentEur: 93_976,
     handles: ["flat"],
     maxWorkingWidthMm: 1300,
+    minWorkLengthMm: 490,
     feedSpeedMpm: 8,
     specs: [
       { label: "Working width", value: "1300 mm" },
@@ -258,7 +297,7 @@ export const SOLUTIONS: SolutionVariant[] = [
       { label: "Feed speed", value: "5–24 m/min" },
       { label: "Best for", value: "Even veneer / lacquer finish" },
     ],
-    processingTimeSec: buildTimes(8, 1300),
+    processingTimeSec: buildTimes(8, 1300, 490),
     automationOptions: [AUTO_INFEED_RETURN, AUTO_DUST, AUTO_MONITORING],
   },
 
@@ -272,6 +311,7 @@ export const SOLUTIONS: SolutionVariant[] = [
     investmentEur: 154_868,
     handles: ["flat"],
     maxWorkingWidthMm: 1300,
+    minWorkLengthMm: 490,
     feedSpeedMpm: 6,
     specs: [
       { label: "Working width", value: "1300 mm" },
@@ -281,7 +321,7 @@ export const SOLUTIONS: SolutionVariant[] = [
       { label: "Feed speed", value: "5–24 m/min" },
       { label: "Best for", value: "Premium veneer effects" },
     ],
-    processingTimeSec: buildTimes(6, 1300),
+    processingTimeSec: buildTimes(6, 1300, 490),
     automationOptions: [AUTO_INFEED_RETURN, AUTO_DUST, AUTO_MONITORING],
   },
 ];

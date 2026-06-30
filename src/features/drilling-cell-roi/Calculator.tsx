@@ -11,7 +11,7 @@ import {
 import { ArrowLeft, ArrowRight, Check, Info, Loader2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { PRODUCTS, type DrillingProduct } from "./products";
-import { SOLUTIONS, type SolutionVariant } from "./solutions";
+import { SOLUTIONS, canProcess, type SolutionVariant } from "./solutions";
 
 type Step = 0 | 1 | 2 | 3 | 4 | 5;
 const INPUT_STEPS = 5; // 0..4 inclusive
@@ -151,13 +151,11 @@ export function DrillingCellRoiCalculator() {
 
   const displayedSolutions = useMemo(() => {
     const noAuto = new Set<string>();
-    // Only offer machines that can handle every product category the customer selected
-    // (e.g. brush sanders for profiled parts, wide-belt sanders for flat panels).
-    const selectedCategories = [...new Set(activeProducts.map((p) => p.category))];
-    const eligible = SOLUTIONS.filter((s) =>
-      selectedCategories.every((c) => s.handles.includes(c)),
+    // Only offer a machine that can actually process every selected product:
+    // right category (brush vs wide-belt) AND able to feed each piece (width + min length).
+    const eligibleSolutions = SOLUTIONS.filter((s) =>
+      activeProducts.every((p) => canProcess(s, p)),
     );
-    const eligibleSolutions = eligible.length > 0 ? eligible : SOLUTIONS;
     const withMetrics = eligibleSolutions.map((s) => ({
       solution: s,
       m: calcSolution(s, activeProducts, quantities, operatorHoursPerWeek, noAuto, eurPerHour, availableShifts),
@@ -296,7 +294,10 @@ export function DrillingCellRoiCalculator() {
     0,
   );
   const step2NextDisabled = activeProducts.length === 0 || totalUnitsPerWeek <= 0 || operatorHoursPerWeek <= 0;
-  const step3NextDisabled = !selectedSolutionName;
+  // If no machine matches the product mix, let the user continue without a selection
+  // (the proposal will be designed manually); otherwise a selection is required.
+  const noMatch = displayedSolutions.length === 0;
+  const step3NextDisabled = !noMatch && !selectedSolutionName;
 
   const STEP_LABELS = ["Products", "Production", "Solution", "Contact"] as const;
 
@@ -697,14 +698,27 @@ export function DrillingCellRoiCalculator() {
             </div>
           </div>
 
+          {/* No-match notice */}
+          {noMatch && (
+            <div className="mb-4 rounded-lg border border-[var(--color-paper-dark)] border-l-4 border-l-[var(--color-tan-500)] bg-[var(--color-paper)] p-5 text-sm leading-relaxed text-[var(--color-ink-500)]">
+              <strong className="text-[var(--color-ink-900)]">No standard machine covers this exact product mix.</strong>
+              <br />Your selection mixes part types or sizes that no single machine in our standard range
+              can run on its own — for example flat panels together with profiled parts, or pieces shorter
+              than the machines can feed. Continue and our specialists will design a tailored line (often a
+              combination of machines) for your case.
+            </div>
+          )}
+
           {/* Label legend */}
-          <div className="mb-4 flex flex-wrap gap-3 text-xs text-[var(--color-slate-500)]">
-            <span><span className="font-semibold text-[var(--color-ink-900)]">Conservative</span> = lowest investment</span>
-            <span>·</span>
-            <span><span className="font-semibold text-[var(--color-ink-900)]">Best fit</span> = fastest payback</span>
-            <span>·</span>
-            <span><span className="font-semibold text-[var(--color-ink-900)]">Growth</span> = most spare capacity</span>
-          </div>
+          {!noMatch && (
+            <div className="mb-4 flex flex-wrap gap-3 text-xs text-[var(--color-slate-500)]">
+              <span><span className="font-semibold text-[var(--color-ink-900)]">Conservative</span> = lowest investment</span>
+              <span>·</span>
+              <span><span className="font-semibold text-[var(--color-ink-900)]">Best fit</span> = fastest payback</span>
+              <span>·</span>
+              <span><span className="font-semibold text-[var(--color-ink-900)]">Growth</span> = most spare capacity</span>
+            </div>
+          )}
 
           {/* Solution cards */}
           <div className="grid gap-4 sm:grid-cols-3">

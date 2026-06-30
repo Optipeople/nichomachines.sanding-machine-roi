@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { site } from "@/lib/site";
 import { SubmissionSchema } from "@/features/drilling-cell-roi/schema";
-import { SOLUTIONS, type SolutionVariant } from "@/features/drilling-cell-roi/solutions";
+import { SOLUTIONS, canProcess, type SolutionVariant } from "@/features/drilling-cell-roi/solutions";
 import { PRODUCTS } from "@/features/drilling-cell-roi/products";
 
 // ── shared constants (must match Calculator.tsx) ──────────────────────────────
@@ -139,16 +139,14 @@ function buildHtml(data: {
     labels: string[];
   };
 
-  // Match the calculator UI: only offer machines that handle every selected product category.
-  const selectedCats = [
-    ...new Set(
-      data.products
-        .map((p) => PRODUCTS.find((pp) => pp.id === p.id)?.category)
-        .filter((c): c is NonNullable<typeof c> => Boolean(c)),
-    ),
-  ];
-  const eligibleSolutions = SOLUTIONS.filter((s) => selectedCats.every((c) => s.handles.includes(c)));
-  const offeredSolutions = eligibleSolutions.length > 0 ? eligibleSolutions : SOLUTIONS;
+  // Match the calculator UI: only offer machines that can process every selected product
+  // (right category AND able to feed each piece — width + minimum length).
+  const offeredSolutions = SOLUTIONS.filter((s) =>
+    data.products.every((p) => {
+      const prod = PRODUCTS.find((pp) => pp.id === p.id);
+      return prod ? canProcess(s, prod) : true;
+    }),
+  );
 
   const allRows: SolutionRow[] = offeredSolutions.map((s) => {
     const m = calcSolution(s, data.products, data.operatorHoursPerWeek, eurPerHour, data.availableShifts);
