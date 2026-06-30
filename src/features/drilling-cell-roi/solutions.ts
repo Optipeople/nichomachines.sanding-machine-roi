@@ -30,7 +30,7 @@
  * of operators (automatic infeed/return, dust extraction, remote monitoring).
  */
 
-import { PRODUCTS } from "./products";
+import { PRODUCTS, type ProductCategory } from "./products";
 
 export type AutomationOption = {
   /** Kort navn vist i UI */
@@ -66,6 +66,9 @@ export type SolutionVariant = {
 
   /** NM Ex Work-pris i EUR (officiel prisliste) */
   investmentEur: number;
+
+  /** Hvilke produktkategorier maskinen kan bearbejde — styrer hvilke løsninger der tilbydes */
+  handles: ProductCategory[];
 
   /** Maks. arbejdsbredde i mm (bruges til at orientere emnet i gennemløbet) */
   maxWorkingWidthMm: number;
@@ -143,12 +146,30 @@ const AUTO_DUST: AutomationOption = {
 
 // ── machine line-up (sorted by NM Ex Work price) ────────────────────────────────
 
-// NOTE: The FR650 3D Brush Sander (NM Ex Work €26,386, 635 mm) is intentionally
-// excluded — it is an edge/profile brush sander, not a full-width flat-panel
-// machine, so it would otherwise win the ranking on price and give misleading
-// "best fit" advice for the wide cabinet panels this calculator covers.
-
 export const SOLUTIONS: SolutionVariant[] = [
+  {
+    name: "FR650 3D Brush Sander",
+    description:
+      "Compact 3D brush sander for edges and profiled surfaces. Two side heads (multi-angle) plus three top brush heads with Danish Flex&Trim brushes — sands shaped, raised-panel and narrow parts that flat sanders cannot reach.",
+    image: "/solutions/fr650.png",
+    oeePercent: 60,
+    operators: 1,
+    investmentEur: 26_386,
+    handles: ["profiled"],
+    maxWorkingWidthMm: 635,
+    feedSpeedMpm: 6,
+    specs: [
+      { label: "Working width", value: "635 mm (25\")" },
+      { label: "Working thickness", value: "3–100 mm" },
+      { label: "Sanding heads", value: "2 side + 3 top brush" },
+      { label: "Feed speed", value: "3–17 m/min" },
+      { label: "Total power", value: "≈ 11.5 kW (15.5 hp)" },
+      { label: "Best for", value: "Edges & profiles" },
+    ],
+    processingTimeSec: buildTimes(6, 635),
+    automationOptions: [AUTO_MONITORING],
+  },
+
   {
     name: "WT RR1300V",
     description:
@@ -157,6 +178,7 @@ export const SOLUTIONS: SolutionVariant[] = [
     oeePercent: 60,
     operators: 1,
     investmentEur: 38_000,
+    handles: ["flat"],
     maxWorkingWidthMm: 1300,
     feedSpeedMpm: 10,
     specs: [
@@ -179,6 +201,7 @@ export const SOLUTIONS: SolutionVariant[] = [
     oeePercent: 70,
     operators: 1,
     investmentEur: 53_640,
+    handles: ["flat"],
     maxWorkingWidthMm: 1300,
     feedSpeedMpm: 14,
     specs: [
@@ -201,6 +224,7 @@ export const SOLUTIONS: SolutionVariant[] = [
     oeePercent: 65,
     operators: 1,
     investmentEur: 68_435,
+    handles: ["flat", "profiled"],
     maxWorkingWidthMm: 1300,
     feedSpeedMpm: 6,
     specs: [
@@ -223,6 +247,7 @@ export const SOLUTIONS: SolutionVariant[] = [
     oeePercent: 72,
     operators: 1,
     investmentEur: 93_976,
+    handles: ["flat"],
     maxWorkingWidthMm: 1300,
     feedSpeedMpm: 8,
     specs: [
@@ -245,6 +270,7 @@ export const SOLUTIONS: SolutionVariant[] = [
     oeePercent: 75,
     operators: 1,
     investmentEur: 154_868,
+    handles: ["flat"],
     maxWorkingWidthMm: 1300,
     feedSpeedMpm: 6,
     specs: [

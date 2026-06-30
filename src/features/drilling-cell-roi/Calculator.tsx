@@ -151,7 +151,14 @@ export function DrillingCellRoiCalculator() {
 
   const displayedSolutions = useMemo(() => {
     const noAuto = new Set<string>();
-    const withMetrics = SOLUTIONS.map((s) => ({
+    // Only offer machines that can handle every product category the customer selected
+    // (e.g. brush sanders for profiled parts, wide-belt sanders for flat panels).
+    const selectedCategories = [...new Set(activeProducts.map((p) => p.category))];
+    const eligible = SOLUTIONS.filter((s) =>
+      selectedCategories.every((c) => s.handles.includes(c)),
+    );
+    const eligibleSolutions = eligible.length > 0 ? eligible : SOLUTIONS;
+    const withMetrics = eligibleSolutions.map((s) => ({
       solution: s,
       m: calcSolution(s, activeProducts, quantities, operatorHoursPerWeek, noAuto, eurPerHour, availableShifts),
     }));
@@ -405,6 +412,7 @@ export function DrillingCellRoiCalculator() {
                       src={p.image}
                       alt=""
                       className="h-full w-full max-w-[200px] object-contain"
+                      onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
                     />
                   </div>
                   <div className="pr-8">
@@ -461,6 +469,7 @@ export function DrillingCellRoiCalculator() {
                           src={p.image}
                           alt=""
                           className="h-full w-full object-contain"
+                          onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
                         />
                       </div>
                       <div className="min-w-0 flex-1">
@@ -518,6 +527,7 @@ export function DrillingCellRoiCalculator() {
                               src={p.image}
                               alt=""
                               className="h-full w-full object-contain"
+                              onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
                             />
                           </div>
                         </td>
