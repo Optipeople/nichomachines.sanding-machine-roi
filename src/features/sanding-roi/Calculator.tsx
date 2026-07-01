@@ -2,7 +2,6 @@
 
 import {
   useCallback,
-  useEffect,
   useMemo,
   useRef,
   useState,
@@ -57,19 +56,13 @@ export function SandingRoiCalculator() {
 
   const goTo = useCallback((next: Step) => {
     setStep(next);
+    setFormError(null); // clear any transient submit error when navigating
     // Smooth scroll to the top of the calculator card, then move focus for a11y
     requestAnimationFrame(() => {
       topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       headingRef.current?.focus({ preventScroll: true });
     });
   }, []);
-
-  // Reset transient errors when leaving the contact step
-  useEffect(() => {
-    if (step !== 4) {
-      setFormError(null);
-    }
-  }, [step]);
 
   const toggleProduct = (id: string) => {
     setSelected((prev) => {
@@ -154,16 +147,13 @@ export function SandingRoiCalculator() {
     return result;
   }, [activeProducts, roiItems, operatorHoursPerWeek, eurPerHour, availableShifts]);
 
-  // Clear the selected machine if it is no longer among the offered solutions
-  // (e.g. the user went back and changed the product mix to a different category).
-  useEffect(() => {
-    if (
-      selectedSolutionName &&
-      !displayedSolutions.some((d) => d.solution.name === selectedSolutionName)
-    ) {
-      setSelectedSolutionName(null);
-    }
-  }, [displayedSolutions, selectedSolutionName]);
+  // The effective selection: ignore a previously chosen machine that is no longer
+  // offered (e.g. the user went back and changed the product mix to a different
+  // category). Derived rather than stored, so it always tracks displayedSolutions.
+  const activeSelectedName =
+    selectedSolutionName && displayedSolutions.some((d) => d.solution.name === selectedSolutionName)
+      ? selectedSolutionName
+      : null;
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -196,10 +186,10 @@ export function SandingRoiCalculator() {
       operatorHoursPerWeek,
       availableShifts,
       country,
-      selectedSolution: selectedSolutionName
+      selectedSolution: activeSelectedName
         ? {
-            name: selectedSolutionName,
-            automationOptions: [...(automationSelected[selectedSolutionName] ?? [])],
+            name: activeSelectedName,
+            automationOptions: [...(automationSelected[activeSelectedName] ?? [])],
           }
         : null,
       website,
@@ -249,7 +239,7 @@ export function SandingRoiCalculator() {
   // If no machine matches the product mix, let the user continue without a selection
   // (the proposal will be designed manually); otherwise a selection is required.
   const noMatch = displayedSolutions.length === 0;
-  const step3NextDisabled = !noMatch && !selectedSolutionName;
+  const step3NextDisabled = !noMatch && !activeSelectedName;
 
   const STEP_LABELS = ["Products", "Production", "Solution", "Contact"] as const;
 
@@ -678,14 +668,6 @@ export function SandingRoiCalculator() {
               const isSel = selectedSolutionName === solution.name;
               const selAuto = automationSelected[solution.name] ?? new Set<string>();
               const m = calcSolution(solution, roiItems, operatorHoursPerWeek, eurPerHour, availableShifts, selAuto);
-              const toggleAuto = (optName: string, checked: boolean) => {
-                setAutomationSelected((prev) => {
-                  const next = new Set(prev[solution.name] ?? []);
-                  if (checked) next.add(optName);
-                  else next.delete(optName);
-                  return { ...prev, [solution.name]: next };
-                });
-              };
               return (
                 <button
                   key={solution.name}

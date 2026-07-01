@@ -157,7 +157,6 @@ function buildHtml(data: {
 
   // 2. Produktionsdata
   const productRows = data.products.map((p) => {
-    const rawDailyHrs = (p.unitsPerWeek / 5);
     return `<tr>
       <td style="${CSS.td}">${e(p.id)}</td>
       <td style="${CSS.td}">${e(p.size)}</td>
