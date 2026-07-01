@@ -13,7 +13,7 @@ cp .env.example .env.local   # fill in RESEND_API_KEY etc. as needed
 npm run dev
 ```
 
-The calculator is served from `/` and posts submissions to `/api/roi/drilling-cell`.
+The calculator is served from `/` and posts submissions to `/api/roi/sanding`.
 
 ## Environment variables
 

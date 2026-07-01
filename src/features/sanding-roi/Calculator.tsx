@@ -10,31 +10,12 @@ import {
 } from "react";
 import { ArrowLeft, ArrowRight, Check, Info, Loader2 } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { PRODUCTS, type DrillingProduct } from "./products";
+import { PRODUCTS, type Product } from "./products";
 import { SOLUTIONS, canProcess, type SolutionVariant } from "./solutions";
+import { COUNTRIES, calcSolution, fmtCurrency, type CountryCode } from "./roi";
 
 type Step = 0 | 1 | 2 | 3 | 4 | 5;
 const INPUT_STEPS = 5; // 0..4 inclusive
-
-const WORKING_DAYS = 220;
-const SHIFT_WEEKLY_HOURS: Record<1 | 2 | 3, number> = { 1: 37, 2: 71, 3: 101 };
-
-const COUNTRIES = [
-  { code: "DK", name: "Denmark",    eurPerHour: 38,   currency: "DKK", eurToLocal: 7.46 },
-  { code: "SE", name: "Sweden",     eurPerHour: 35,   currency: "SEK", eurToLocal: 11.50 },
-  { code: "NO", name: "Norway",     eurPerHour: 48,   currency: "NOK", eurToLocal: 11.80 },
-  { code: "FI", name: "Finland",    eurPerHour: 35,   currency: "EUR", eurToLocal: 1.0 },
-  { code: "EE", name: "Estonia",    eurPerHour: 20,   currency: "EUR", eurToLocal: 1.0 },
-  { code: "LV", name: "Latvia",     eurPerHour: 20,   currency: "EUR", eurToLocal: 1.0 },
-  { code: "LT", name: "Lithuania",  eurPerHour: 20,   currency: "EUR", eurToLocal: 1.0 },
-] as const;
-type CountryCode = (typeof COUNTRIES)[number]["code"];
-
-function fmtCurrency(eurAmount: number, eurToLocal: number, currency: string): string {
-  const amount = Math.round(eurAmount * eurToLocal);
-  const formatted = amount.toLocaleString("en");
-  return currency === "EUR" ? `€${formatted}` : `${formatted} ${currency}`;
-}
 
 const SOLUTION_LABELS = [
   { label: "Conservative choice",       badge: "bg-[var(--color-paper-dark)] text-[var(--color-ink-900)]" },
@@ -42,45 +23,11 @@ const SOLUTION_LABELS = [
   { label: "Growth ambitions",          badge: "bg-emerald-50 text-emerald-800" },
 ];
 
-function calcSolution(
-  s: SolutionVariant,
-  products: DrillingProduct[],
-  quantities: Record<string, number>, // units per week
-  operatorHoursPerWeek: number,
-  selectedAutoNames: Set<string>,
-  eurPerHour: number,
-  availableShifts: 1 | 2 | 3,
-) {
-  const selectedOptions = (s.automationOptions ?? []).filter((o) => selectedAutoNames.has(o.name));
-  const oeeBoost = selectedOptions.reduce((sum, o) => sum + o.oeeBoostPct, 0);
-  const operatorReduction = selectedOptions.reduce((sum, o) => sum + o.operatorReduction, 0);
-  const automationPrice = selectedOptions.reduce((sum, o) => sum + o.priceEur, 0);
-
-  const oee = Math.min(100, s.oeePercent + oeeBoost);
-  const effectiveOperators = Math.max(0, s.operators - operatorReduction);
-  const totalInvestment = s.investmentEur + automationPrice;
-
-  const rawWeeklyHours = products.reduce((sum, p) => {
-    return sum + ((quantities[p.id] ?? 0) * (s.processingTimeSec[p.id] ?? 0)) / 3600;
-  }, 0);
-  const weeklyMachineHours = rawWeeklyHours / (oee / 100);
-  const availableWeeklyHours = SHIFT_WEEKLY_HOURS[availableShifts];
-  const capacityUtilPct = (weeklyMachineHours / availableWeeklyHours) * 100;
-
-  const annualMachineHours = weeklyMachineHours * 46;
-  const annualCurrentCost = operatorHoursPerWeek * 46 * eurPerHour;
-  const annualFutureCost = weeklyMachineHours * effectiveOperators * 46 * eurPerHour;
-  const annualSavingsEur = Math.max(0, annualCurrentCost - annualFutureCost);
-  const paybackYears = annualSavingsEur > 0 ? totalInvestment / annualSavingsEur : Infinity;
-
-  return { oee, effectiveOperators, totalInvestment, weeklyMachineHours, annualMachineHours, capacityUtilPct, annualSavingsEur, paybackYears };
-}
-
 type Contact = { name: string; email: string; job: string; company: string };
 
 const emailOk = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
-export function DrillingCellRoiCalculator() {
+export function SandingRoiCalculator() {
   const [step, setStep] = useState<Step>(0);
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [quantities, setQuantities] = useState<Record<string, number>>({});
@@ -138,9 +85,14 @@ export function DrillingCellRoiCalculator() {
     else setSelected(new Set());
   };
 
-  const activeProducts: DrillingProduct[] = useMemo(
+  const activeProducts: Product[] = useMemo(
     () => PRODUCTS.filter((p) => selected.has(p.id)),
     [selected],
+  );
+
+  const roiItems = useMemo(
+    () => activeProducts.map((p) => ({ id: p.id, unitsPerWeek: quantities[p.id] ?? 0 })),
+    [activeProducts, quantities],
   );
 
   const updateQty = (id: string, value: number) => {
@@ -158,7 +110,7 @@ export function DrillingCellRoiCalculator() {
     );
     const withMetrics = eligibleSolutions.map((s) => ({
       solution: s,
-      m: calcSolution(s, activeProducts, quantities, operatorHoursPerWeek, noAuto, eurPerHour, availableShifts),
+      m: calcSolution(s, roiItems, operatorHoursPerWeek, eurPerHour, availableShifts, noAuto),
     }));
 
     // Feasible = weekly machine hours fit within available shift hours
@@ -200,7 +152,7 @@ export function DrillingCellRoiCalculator() {
       result.push({ solution: item.solution, labels: labelMap.get(item.solution.name) ?? [] });
     });
     return result;
-  }, [activeProducts, quantities, operatorHoursPerWeek, eurPerHour, availableShifts]);
+  }, [activeProducts, roiItems, operatorHoursPerWeek, eurPerHour, availableShifts]);
 
   // Clear the selected machine if it is no longer among the offered solutions
   // (e.g. the user went back and changed the product mix to a different category).
@@ -254,7 +206,7 @@ export function DrillingCellRoiCalculator() {
     };
 
     try {
-      const res = await fetch("/api/roi/drilling-cell", {
+      const res = await fetch("/api/roi/sanding", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -725,7 +677,7 @@ export function DrillingCellRoiCalculator() {
             {displayedSolutions.map(({ solution, labels }) => {
               const isSel = selectedSolutionName === solution.name;
               const selAuto = automationSelected[solution.name] ?? new Set<string>();
-              const m = calcSolution(solution, activeProducts, quantities, operatorHoursPerWeek, selAuto, eurPerHour, availableShifts);
+              const m = calcSolution(solution, roiItems, operatorHoursPerWeek, eurPerHour, availableShifts, selAuto);
               const toggleAuto = (optName: string, checked: boolean) => {
                 setAutomationSelected((prev) => {
                   const next = new Set(prev[solution.name] ?? []);

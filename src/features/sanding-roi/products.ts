@@ -11,7 +11,7 @@
 
 export type ProductCategory = "flat" | "profiled";
 
-export type DrillingProduct = {
+export type Product = {
   id: string;
   name: string;
   size: string;
@@ -19,7 +19,7 @@ export type DrillingProduct = {
   category: ProductCategory;
 };
 
-export const PRODUCTS: readonly DrillingProduct[] = [
+export const PRODUCTS: readonly Product[] = [
   { id: "Special Milling Panel", name: "", size: "397.5 × 779 × 19 mm",   image: "/products/special-milling-panel.png", category: "flat" },
   { id: "Sliding Door",          name: "", size: "1051 × 568.5 × 16 mm",  image: "/products/sliding-door.png",          category: "flat" },
   { id: "Hinge Door",            name: "", size: "702 × 368 × 17 mm",     image: "/products/hinge-door.png",            category: "flat" },

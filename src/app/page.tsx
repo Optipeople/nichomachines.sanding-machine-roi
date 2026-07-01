@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { ArrowLeft } from "lucide-react";
 import { Container } from "@/components/Container";
-import { DrillingCellRoiCalculator } from "@/features/drilling-cell-roi/Calculator";
+import { SandingRoiCalculator } from "@/features/sanding-roi/Calculator";
 
 export const metadata: Metadata = {
   title: "Sanding Machine ROI Calculator",
@@ -44,7 +44,7 @@ export default function HomePage() {
             />
           </a>
         </div>
-        <DrillingCellRoiCalculator />
+        <SandingRoiCalculator />
         <p
           className="mt-16 text-center text-xs tracking-wide"
           style={{ color: "#555" }}

@@ -1,68 +1,16 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { site } from "@/lib/site";
-import { SubmissionSchema } from "@/features/drilling-cell-roi/schema";
-import { SOLUTIONS, canProcess, type SolutionVariant } from "@/features/drilling-cell-roi/solutions";
-import { PRODUCTS } from "@/features/drilling-cell-roi/products";
-
-// ── shared constants (must match Calculator.tsx) ──────────────────────────────
-
-const SHIFT_WEEKLY_HOURS: Record<1 | 2 | 3, number> = { 1: 37, 2: 71, 3: 101 };
-const WORKING_WEEKS = 46;
-
-const COUNTRIES: Record<string, { name: string; eurPerHour: number }> = {
-  DK: { name: "Denmark",    eurPerHour: 33.5 },
-  SE: { name: "Sweden",     eurPerHour: 30.0 },
-  NO: { name: "Norway",     eurPerHour: 48.0 },
-  FI: { name: "Finland",    eurPerHour: 28.0 },
-  EE: { name: "Estonia",    eurPerHour:  8.5 },
-  LV: { name: "Latvia",     eurPerHour:  6.5 },
-  LT: { name: "Lithuania",  eurPerHour:  7.5 },
-};
-
-// ── calculation ───────────────────────────────────────────────────────────────
-
-type ProductInput = { id: string; unitsPerWeek: number };
-
-type CalcResult = {
-  oee: number;
-  effectiveOperators: number;
-  totalInvestment: number;
-  weeklyMachineHours: number;
-  annualMachineHours: number;
-  capacityUtilPct: number;
-  annualCurrentCost: number;
-  annualFutureCost: number;
-  annualSavingsEur: number;
-  paybackYears: number;
-};
-
-function calcSolution(
-  s: SolutionVariant,
-  products: ProductInput[],
-  operatorHoursPerWeek: number,
-  eurPerHour: number,
-  availableShifts: 1 | 2 | 3,
-): CalcResult {
-  const oee = Math.min(100, s.oeePercent);
-  const effectiveOperators = s.operators;
-  const totalInvestment = s.investmentEur;
-
-  const rawWeeklyHours = products.reduce((sum, p) => {
-    return sum + (p.unitsPerWeek * (s.processingTimeSec[p.id] ?? 0)) / 3600;
-  }, 0);
-  const weeklyMachineHours = rawWeeklyHours / (oee / 100);
-  const availableWeeklyHours = SHIFT_WEEKLY_HOURS[availableShifts];
-  const capacityUtilPct = (weeklyMachineHours / availableWeeklyHours) * 100;
-
-  const annualMachineHours = weeklyMachineHours * WORKING_WEEKS;
-  const annualCurrentCost = operatorHoursPerWeek * WORKING_WEEKS * eurPerHour;
-  const annualFutureCost = weeklyMachineHours * effectiveOperators * WORKING_WEEKS * eurPerHour;
-  const annualSavingsEur = Math.max(0, annualCurrentCost - annualFutureCost);
-  const paybackYears = annualSavingsEur > 0 ? totalInvestment / annualSavingsEur : Infinity;
-
-  return { oee, effectiveOperators, totalInvestment, weeklyMachineHours, annualMachineHours, capacityUtilPct, annualCurrentCost, annualFutureCost, annualSavingsEur, paybackYears };
-}
+import { SubmissionSchema } from "@/features/sanding-roi/schema";
+import { SOLUTIONS, canProcess, type SolutionVariant } from "@/features/sanding-roi/solutions";
+import { PRODUCTS } from "@/features/sanding-roi/products";
+import {
+  SHIFT_WEEKLY_HOURS,
+  WORKING_WEEKS,
+  calcSolution,
+  getCountry,
+  type RoiResult,
+} from "@/features/sanding-roi/roi";
 
 // ── formatting helpers ────────────────────────────────────────────────────────
 
@@ -126,7 +74,7 @@ function buildHtml(data: {
   selectedSolution: { name: string; automationOptions: string[] } | null;
   submittedAt: string;
 }): string {
-  const countryInfo = COUNTRIES[data.country] ?? { name: data.country, eurPerHour: 0 };
+  const countryInfo = getCountry(data.country);
   const { eurPerHour } = countryInfo;
   const availableWeeklyHours = SHIFT_WEEKLY_HOURS[data.availableShifts];
   const totalUnitsPerWeek = data.products.reduce((s, p) => s + p.unitsPerWeek, 0);
@@ -134,7 +82,7 @@ function buildHtml(data: {
   // ── run calcSolution for all 4 solutions ──
   type SolutionRow = {
     solution: SolutionVariant;
-    m: CalcResult;
+    m: RoiResult;
     feasible: boolean;
     labels: string[];
   };
@@ -422,7 +370,7 @@ export async function POST(request: Request) {
 
   const reportHtml = buildHtml({ ...data, submittedAt });
 
-  const countryInfo = COUNTRIES[data.country] ?? { name: data.country, eurPerHour: 0 };
+  const countryInfo = getCountry(data.country);
   const totalUnitsPerWeek = data.products.reduce((s, p) => s + p.unitsPerWeek, 0);
   const selName = data.selectedSolution?.name ?? "(ingen løsning valgt)";
 
