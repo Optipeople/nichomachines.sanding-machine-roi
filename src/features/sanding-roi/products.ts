@@ -8,8 +8,9 @@
  * A machine is only offered if it can handle every category the customer
  * selects (see `handles` in solutions.ts).
  *
- * The list represents typical sanded workpieces (solid wood, MDF/lacquer,
- * veneer, cabinet parts, mouldings) rather than drilling parts.
+ * Items are named by the physical part and span the size range the calculator
+ * needs (only size + category affect the result — material does not). Kept free
+ * of geometric duplicates so no two entries produce the same machine ranking.
  */
 
 export type ProductCategory = "flat" | "profiled";
@@ -23,11 +24,8 @@ export type Product = {
 };
 
 export const PRODUCTS: readonly Product[] = [
-  // Core sanding use cases (calibration, primer/lacquer, veneer)
-  { id: "MDF Lacquer Door",  name: "MDF panel — primer / lacquer", size: "716 × 397 × 18 mm",  image: "/products/mdf-lacquer-door.png", category: "flat" },
-  { id: "Solid-Wood Panel",  name: "Glued board — calibration",   size: "1200 × 600 × 27 mm", image: "/products/solid-wood-panel.png", category: "flat" },
-  { id: "Veneered Panel",    name: "Veneer — fine finish",        size: "1200 × 600 × 19 mm", image: "/products/veneered-panel.png",  category: "flat" },
-  // Cabinet & furniture parts
+  // Flat panels & cabinet parts (small → large)
+  { id: "Solid-Wood Panel",  name: "Glued board — calibration", size: "1200 × 600 × 27 mm", image: "/products/solid-wood-panel.png", category: "flat" },
   { id: "Sliding Door",      name: "", size: "1051 × 568.5 × 16 mm", image: "/products/sliding-door.png",      category: "flat" },
   { id: "Hinge Door",        name: "", size: "702 × 368 × 17 mm",    image: "/products/hinge-door.png",        category: "flat" },
   { id: "Cabinet Side",      name: "", size: "1058 × 379.5 × 23 mm", image: "/products/cabinet-side.png",      category: "flat" },
