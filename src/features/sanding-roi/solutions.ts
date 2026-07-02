@@ -76,6 +76,10 @@ export type SolutionVariant = {
   /** Min. arbejdslængde i mm — emner kortere end dette i fremføringsretningen kan ikke føres sikkert igennem */
   minWorkLengthMm: number;
 
+  /** Arbejdstykkelse-område i mm — emner uden for dette kan ikke bearbejdes */
+  minThicknessMm: number;
+  maxThicknessMm: number;
+
   /** Effektiv produktions-fremføringshastighed i m/min (typisk under maks.) */
   feedSpeedMpm: number;
 
@@ -98,6 +102,12 @@ const FEED_GAP_M = 0.4;
 function planarDims(size: string): [number, number] {
   const nums = (size.match(/[\d.]+/g) ?? []).map(Number);
   return [nums[0] ?? 0, nums[1] ?? 0];
+}
+
+/** Tykkelsen (3. mål) i mm fra en størrelse som "397.5 × 779 × 19 mm". */
+function thicknessMm(size: string): number {
+  const nums = (size.match(/[\d.]+/g) ?? []).map(Number);
+  return nums[2] ?? 0;
 }
 
 /**
@@ -127,6 +137,7 @@ function cycleTimeSec(feedLenMm: number, feedSpeedMpm: number): number {
 
 /**
  * Byg processingTimeSec-mappet for alle produkter ud fra maskinens feed speed.
+ * Tiden ganges med antal slibede sider (én passage pr. side i en gennemløbssliber).
  * For emner maskinen ikke kan føre (feedLengthMm === null) bruges længste mål
  * som worst-case tid — maskinen udelukkes alligevel af canProcess.
  */
@@ -135,17 +146,23 @@ function buildTimes(feedSpeedMpm: number, maxWidthMm: number, minWorkLengthMm: n
     PRODUCTS.map((p) => {
       const fl = feedLengthMm(p.size, maxWidthMm, minWorkLengthMm);
       const lenForTime = fl ?? Math.max(...planarDims(p.size));
-      return [p.id, Math.max(1, Math.round(cycleTimeSec(lenForTime, feedSpeedMpm)))];
+      const perSide = cycleTimeSec(lenForTime, feedSpeedMpm);
+      return [p.id, Math.max(1, Math.round(perSide * p.sides))];
     }),
   );
 }
 
-/** Kan maskinen bearbejde emnet? Kræver både rette kategori og at det kan føres igennem. */
+/**
+ * Kan maskinen bearbejde emnet? Kræver rette kategori, at det kan føres igennem
+ * (bredde + min. længde), og at tykkelsen ligger i maskinens arbejdsområde.
+ */
 export function canProcess(
   s: SolutionVariant,
   p: { size: string; category: ProductCategory },
 ): boolean {
   if (!s.handles.includes(p.category)) return false;
+  const t = thicknessMm(p.size);
+  if (t > 0 && (t < s.minThicknessMm || t > s.maxThicknessMm)) return false;
   return feedLengthMm(p.size, s.maxWorkingWidthMm, s.minWorkLengthMm) !== null;
 }
 
@@ -192,6 +209,8 @@ export const SOLUTIONS: SolutionVariant[] = [
     handles: ["profiled"],
     maxWorkingWidthMm: 635,
     minWorkLengthMm: 380,
+    minThicknessMm: 3,
+    maxThicknessMm: 100,
     feedSpeedMpm: 6,
     specs: [
       { label: "Working width", value: "635 mm (25\")" },
@@ -216,6 +235,8 @@ export const SOLUTIONS: SolutionVariant[] = [
     handles: ["flat"],
     maxWorkingWidthMm: 1300,
     minWorkLengthMm: 280,
+    minThicknessMm: 3,
+    maxThicknessMm: 150,
     feedSpeedMpm: 10,
     specs: [
       { label: "Working width", value: "1300 mm" },
@@ -240,6 +261,8 @@ export const SOLUTIONS: SolutionVariant[] = [
     handles: ["flat"],
     maxWorkingWidthMm: 1300,
     minWorkLengthMm: 490,
+    minThicknessMm: 3,
+    maxThicknessMm: 150,
     feedSpeedMpm: 14,
     specs: [
       { label: "Working width", value: "1300 mm" },
@@ -264,6 +287,8 @@ export const SOLUTIONS: SolutionVariant[] = [
     handles: ["flat", "profiled"],
     maxWorkingWidthMm: 1300,
     minWorkLengthMm: 460,
+    minThicknessMm: 3,
+    maxThicknessMm: 120,
     feedSpeedMpm: 6,
     specs: [
       { label: "Working width", value: "1300 mm" },
@@ -288,6 +313,8 @@ export const SOLUTIONS: SolutionVariant[] = [
     handles: ["flat"],
     maxWorkingWidthMm: 1300,
     minWorkLengthMm: 490,
+    minThicknessMm: 3,
+    maxThicknessMm: 150,
     feedSpeedMpm: 8,
     specs: [
       { label: "Working width", value: "1300 mm" },
@@ -312,6 +339,8 @@ export const SOLUTIONS: SolutionVariant[] = [
     handles: ["flat"],
     maxWorkingWidthMm: 1300,
     minWorkLengthMm: 490,
+    minThicknessMm: 3,
+    maxThicknessMm: 150,
     feedSpeedMpm: 6,
     specs: [
       { label: "Working width", value: "1300 mm" },
