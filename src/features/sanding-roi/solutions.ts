@@ -136,8 +136,9 @@ function cycleTimeSec(feedLenMm: number, feedSpeedMpm: number): number {
 }
 
 /**
- * Byg processingTimeSec-mappet for alle produkter ud fra maskinens feed speed.
- * Tiden ganges med antal slibede sider (én passage pr. side i en gennemløbssliber).
+ * Byg processingTimeSec-mappet: tid pr. emne for ÉN slibet side ved maskinens
+ * basis-fremføringshastighed. Antal sider og materiale-faktor lægges på ved
+ * kørsel (se calcSolution), så kunden kan ændre dem uden at røre data her.
  * For emner maskinen ikke kan føre (feedLengthMm === null) bruges længste mål
  * som worst-case tid — maskinen udelukkes alligevel af canProcess.
  */
@@ -146,8 +147,7 @@ function buildTimes(feedSpeedMpm: number, maxWidthMm: number, minWorkLengthMm: n
     PRODUCTS.map((p) => {
       const fl = feedLengthMm(p.size, maxWidthMm, minWorkLengthMm);
       const lenForTime = fl ?? Math.max(...planarDims(p.size));
-      const perSide = cycleTimeSec(lenForTime, feedSpeedMpm);
-      return [p.id, Math.max(1, Math.round(perSide * p.sides))];
+      return [p.id, Math.max(1, Math.round(cycleTimeSec(lenForTime, feedSpeedMpm)))];
     }),
   );
 }

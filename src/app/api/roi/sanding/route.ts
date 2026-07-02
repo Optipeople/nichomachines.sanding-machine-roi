@@ -9,6 +9,8 @@ import {
   WORKING_WEEKS,
   calcSolution,
   getCountry,
+  getMaterialFactor,
+  MATERIALS,
   type RoiResult,
 } from "@/features/sanding-roi/roi";
 
@@ -67,15 +69,18 @@ function sectionHeading(title: string) {
 
 function buildHtml(data: {
   contact: { name: string; email: string; job: string; company?: string };
-  products: Array<{ id: string; name: string; size: string; unitsPerWeek: number }>;
+  products: Array<{ id: string; name: string; size: string; unitsPerWeek: number; sides: 1 | 2 }>;
   operatorHoursPerWeek: number;
   availableShifts: 1 | 2 | 3;
   country: string;
+  material: string;
   selectedSolution: { name: string; automationOptions: string[] } | null;
   submittedAt: string;
 }): string {
   const countryInfo = getCountry(data.country);
   const { eurPerHour } = countryInfo;
+  const materialFactor = getMaterialFactor(data.material);
+  const materialName = MATERIALS.find((m) => m.code === data.material)?.name ?? data.material;
   const availableWeeklyHours = SHIFT_WEEKLY_HOURS[data.availableShifts];
   const totalUnitsPerWeek = data.products.reduce((s, p) => s + p.unitsPerWeek, 0);
 
@@ -97,7 +102,7 @@ function buildHtml(data: {
   );
 
   const allRows: SolutionRow[] = offeredSolutions.map((s) => {
-    const m = calcSolution(s, data.products, data.operatorHoursPerWeek, eurPerHour, data.availableShifts);
+    const m = calcSolution(s, data.products, data.operatorHoursPerWeek, eurPerHour, data.availableShifts, materialFactor);
     return { solution: s, m, feasible: m.capacityUtilPct <= 100, labels: [] };
   });
 
@@ -160,6 +165,7 @@ function buildHtml(data: {
     return `<tr>
       <td style="${CSS.td}">${e(p.id)}</td>
       <td style="${CSS.td}">${e(p.size)}</td>
+      <td style="${CSS.tdR}">${p.sides}</td>
       <td style="${CSS.tdR}">${p.unitsPerWeek.toLocaleString("da-DK")}</td>
     </tr>`;
   }).join("");
@@ -172,6 +178,7 @@ function buildHtml(data: {
       ${row("Operat&oslash;rtimer i dag", e(fmtNum(data.operatorHoursPerWeek, 1) + " timer / uge"))}
       ${row('Nuværende årlig operatøromkostning', '<strong>' + e(fmtEur.format(data.operatorHoursPerWeek * WORKING_WEEKS * eurPerHour)) + '</strong> <span style="color:#7a8a9a;font-size:12px;">(' + fmtNum(data.operatorHoursPerWeek, 1) + ' x ' + WORKING_WEEKS + ' uger x ' + e(fmtEur.format(eurPerHour)) + ')</span>')}
       ${row("Tilg&aelig;ngelige skift", e(data.availableShifts + " skift " + String.fromCharCode(8594) + " " + availableWeeklyHours + " timer / uge"))}
+      ${row("Materiale", e(materialName + " (feed-faktor " + fmtNum(materialFactor, 2) + ")"))}
       ${row("Samlede enheder / uge", e(totalUnitsPerWeek.toLocaleString("da-DK")))}
     </table>
     <table style="border-collapse:collapse;width:100%;">
@@ -179,6 +186,7 @@ function buildHtml(data: {
         <tr>
           <th style="${CSS.th}">Produkt</th>
           <th style="${CSS.th}">Størrelse</th>
+          <th style="${CSS.thR}">Sider</th>
           <th style="${CSS.thR}">Enheder / uge</th>
         </tr>
       </thead>
@@ -202,13 +210,14 @@ function buildHtml(data: {
 
     const rowBg = isSelected ? "background:#fffbf0;" : isPresented ? "background:#f9f9f9;" : "";
 
-    // Per-produkt cyklustider
+    // Per-produkt cyklustider (basis pr. side × antal sider ÷ materiale-faktor)
     const cycleRows = data.products.map((p) => {
-      const sec = s.processingTimeSec[p.id] ?? 0;
+      const base = s.processingTimeSec[p.id] ?? 0;
+      const sec = Math.round((base * p.sides) / (materialFactor || 1));
       const rawWeeklyP = (p.unitsPerWeek * sec) / 3600;
       const machWeeklyP = rawWeeklyP / (m.oee / 100);
       return `<tr>
-        <td style="font-size:12px;color:#444;padding:2px 8px 2px 16px;">${e(p.id)}</td>
+        <td style="font-size:12px;color:#444;padding:2px 8px 2px 16px;">${e(p.id)} <span style="color:#aaa;">(${p.sides}-sidet)</span></td>
         <td style="font-size:12px;color:#666;padding:2px 8px;text-align:right;">${sec} sek</td>
         <td style="font-size:12px;color:#666;padding:2px 8px;text-align:right;">${p.unitsPerWeek.toLocaleString("da-DK")} stk/uge</td>
         <td style="font-size:12px;color:#666;padding:2px 0;text-align:right;">${fmtNum(machWeeklyP, 2)} t/uge</td>
@@ -330,10 +339,11 @@ function buildHtml(data: {
 export async function GET() {
   const html = buildHtml({
     contact: { name: "Lars Andersen", email: "lars@kabinetteknik.dk", job: "Produktionschef", company: "Kabinetteknik A/S" },
-    products: [{ id: "Hinge Door", name: "", size: "702 × 368 × 17 mm", unitsPerWeek: 1750 }],
+    products: [{ id: "Hinge Door", name: "", size: "702 × 368 × 17 mm", unitsPerWeek: 1750, sides: 2 }],
     operatorHoursPerWeek: 120,
     availableShifts: 1,
     country: "DK",
+    material: "board",
     selectedSolution: { name: "WT RRC1300", automationOptions: [] },
     submittedAt: "mandag den 26. maj 2026 kl. 10.34",
   });

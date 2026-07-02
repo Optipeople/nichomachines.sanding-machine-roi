@@ -14,6 +14,7 @@ export const SubmissionSchema = z.object({
         name: z.string().max(80),
         size: z.string().max(80),
         unitsPerWeek: z.number().min(0).max(1_000_000),
+        sides: z.union([z.literal(1), z.literal(2)]),
       }),
     )
     .min(1)
@@ -21,6 +22,7 @@ export const SubmissionSchema = z.object({
   operatorHoursPerWeek: z.number().min(0).max(10_000),
   availableShifts: z.union([z.literal(1), z.literal(2), z.literal(3)]),
   country: z.string().min(2).max(2),
+  material: z.string().min(1).max(20),
   selectedSolution: z
     .object({
       name: z.string().min(1).max(160),

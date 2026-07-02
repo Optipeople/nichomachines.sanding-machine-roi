@@ -46,8 +46,27 @@ export function fmtCurrency(eurAmount: number, eurToLocal: number, currency: str
   return currency === "EUR" ? `€${formatted}` : `${formatted} ${currency}`;
 }
 
-/** One product line for the calculation: how many of a given product per week. */
-export type RoiItem = { id: string; unitsPerWeek: number };
+/**
+ * Workpiece material — sanded at different feed speeds. `speedFactor` scales a
+ * machine's effective feed speed (higher = faster feed = shorter cycle time).
+ * ⚠ factors are indicative; tune to real production experience.
+ */
+export const MATERIALS = [
+  { code: "board",    name: "MDF / chipboard",         speedFactor: 1.0 },
+  { code: "softwood", name: "Softwood (pine, spruce)", speedFactor: 1.15 },
+  { code: "hardwood", name: "Hardwood (oak, beech)",   speedFactor: 0.8 },
+  { code: "lacquer",  name: "Lacquer / primer (fine)", speedFactor: 0.65 },
+] as const;
+
+export type MaterialCode = (typeof MATERIALS)[number]["code"];
+
+/** Feed-speed factor for a material code (1.0 if unknown). */
+export function getMaterialFactor(code: string): number {
+  return MATERIALS.find((m) => m.code === code)?.speedFactor ?? 1;
+}
+
+/** One product line for the calculation: units/week and how many faces are sanded. */
+export type RoiItem = { id: string; unitsPerWeek: number; sides: number };
 
 export type RoiResult = {
   oee: number;
@@ -65,6 +84,8 @@ export type RoiResult = {
 /**
  * Core ROI calculation for one machine.
  *
+ * `materialFactor` scales feed speed for the workpiece material (see MATERIALS);
+ * each item's time is multiplied by its `sides` (passes) and divided by the factor.
  * `selectedAutoNames` are the automation add-ons the customer ticked (empty = base
  * machine); they raise OEE, reduce operators and add to the investment.
  */
@@ -74,6 +95,7 @@ export function calcSolution(
   operatorHoursPerWeek: number,
   eurPerHour: number,
   availableShifts: 1 | 2 | 3,
+  materialFactor: number = 1,
   selectedAutoNames: Set<string> = new Set(),
 ): RoiResult {
   const selectedOptions = (s.automationOptions ?? []).filter((o) => selectedAutoNames.has(o.name));
@@ -85,8 +107,9 @@ export function calcSolution(
   const effectiveOperators = Math.max(0, s.operators - operatorReduction);
   const totalInvestment = s.investmentEur + automationPrice;
 
+  const factor = materialFactor > 0 ? materialFactor : 1;
   const rawWeeklyHours = items.reduce(
-    (sum, it) => sum + (it.unitsPerWeek * (s.processingTimeSec[it.id] ?? 0)) / 3600,
+    (sum, it) => sum + (it.unitsPerWeek * (s.processingTimeSec[it.id] ?? 0) * it.sides) / factor / 3600,
     0,
   );
   const weeklyMachineHours = rawWeeklyHours / (oee / 100);

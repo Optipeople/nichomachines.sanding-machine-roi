@@ -11,7 +11,15 @@ import { ArrowLeft, ArrowRight, Check, Info, Loader2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { PRODUCTS, type Product } from "./products";
 import { SOLUTIONS, canProcess, type SolutionVariant } from "./solutions";
-import { COUNTRIES, calcSolution, fmtCurrency, type CountryCode } from "./roi";
+import {
+  COUNTRIES,
+  MATERIALS,
+  calcSolution,
+  fmtCurrency,
+  getMaterialFactor,
+  type CountryCode,
+  type MaterialCode,
+} from "./roi";
 
 type Step = 0 | 1 | 2 | 3 | 4 | 5;
 const INPUT_STEPS = 5; // 0..4 inclusive
@@ -47,9 +55,13 @@ export function SandingRoiCalculator() {
   const [automationSelected, setAutomationSelected] = useState<Record<string, Set<string>>>({});
   const [country, setCountry] = useState<CountryCode>("DK");
   const [availableShifts, setAvailableShifts] = useState<1 | 2 | 3>(1);
+  const [material, setMaterial] = useState<MaterialCode>("board");
+  // Per-product override of how many faces are sanded (falls back to the product default)
+  const [sidesById, setSidesById] = useState<Record<string, 1 | 2>>({});
 
   const selectedCountry = COUNTRIES.find((c) => c.code === country)!;
   const eurPerHour = selectedCountry.eurPerHour;
+  const materialFactor = getMaterialFactor(material);
 
   const topRef = useRef<HTMLDivElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -84,12 +96,21 @@ export function SandingRoiCalculator() {
   );
 
   const roiItems = useMemo(
-    () => activeProducts.map((p) => ({ id: p.id, unitsPerWeek: quantities[p.id] ?? 0 })),
-    [activeProducts, quantities],
+    () =>
+      activeProducts.map((p) => ({
+        id: p.id,
+        unitsPerWeek: quantities[p.id] ?? 0,
+        sides: sidesById[p.id] ?? p.sides,
+      })),
+    [activeProducts, quantities, sidesById],
   );
 
   const updateQty = (id: string, value: number) => {
     setQuantities((prev) => ({ ...prev, [id]: value }));
+  };
+
+  const setSides = (id: string, value: 1 | 2) => {
+    setSidesById((prev) => ({ ...prev, [id]: value }));
   };
 
   const firstName = (contact.name.trim().split(/\s+/)[0] || "there").trim();
@@ -103,7 +124,7 @@ export function SandingRoiCalculator() {
     );
     const withMetrics = eligibleSolutions.map((s) => ({
       solution: s,
-      m: calcSolution(s, roiItems, operatorHoursPerWeek, eurPerHour, availableShifts, noAuto),
+      m: calcSolution(s, roiItems, operatorHoursPerWeek, eurPerHour, availableShifts, materialFactor, noAuto),
     }));
 
     // Feasible = weekly machine hours fit within available shift hours
@@ -145,7 +166,7 @@ export function SandingRoiCalculator() {
       result.push({ solution: item.solution, labels: labelMap.get(item.solution.name) ?? [] });
     });
     return result;
-  }, [activeProducts, roiItems, operatorHoursPerWeek, eurPerHour, availableShifts]);
+  }, [activeProducts, roiItems, operatorHoursPerWeek, eurPerHour, availableShifts, materialFactor]);
 
   // The effective selection: ignore a previously chosen machine that is no longer
   // offered (e.g. the user went back and changed the product mix to a different
@@ -182,10 +203,12 @@ export function SandingRoiCalculator() {
         name: p.name,
         size: p.size,
         unitsPerWeek: quantities[p.id] ?? 0,
+        sides: sidesById[p.id] ?? p.sides,
       })),
       operatorHoursPerWeek,
       availableShifts,
       country,
+      material,
       selectedSolution: activeSelectedName
         ? {
             name: activeSelectedName,
@@ -221,6 +244,8 @@ export function SandingRoiCalculator() {
     setOperatorHoursPerWeek(40);
     setCountry("DK");
     setAvailableShifts(1);
+    setMaterial("board");
+    setSidesById({});
     setContact({ name: "", email: "", job: "", company: "" });
     setErrors({});
     setFormError(null);
@@ -451,6 +476,13 @@ export function SandingRoiCalculator() {
                         className="w-28"
                       />
                     </div>
+                    <div className="mt-3 flex items-center justify-between gap-3 border-t border-[var(--color-paper-dark)] pt-3">
+                      <span className="inline-flex items-center gap-1 text-eyebrow text-[var(--color-slate-500)]">
+                        Sanded sides
+                        <InfoTooltip text="How many faces of this part are sanded. Both sides doubles the machine time for the part." />
+                      </span>
+                      <SidesToggle value={sidesById[p.id] ?? p.sides} onChange={(v) => setSides(p.id, v)} />
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -467,6 +499,12 @@ export function SandingRoiCalculator() {
                         <span className="inline-flex items-center justify-end gap-1">
                           Units / week
                           <InfoTooltip text="How many pieces of this panel type do you sand in a typical week? If you think in daily numbers, multiply by 5." />
+                        </span>
+                      </th>
+                      <th className="pb-3 text-right text-eyebrow">
+                        <span className="inline-flex items-center justify-end gap-1">
+                          Sides
+                          <InfoTooltip text="How many faces are sanded. Both sides doubles the machine time for that part." />
                         </span>
                       </th>
                     </tr>
@@ -498,6 +536,11 @@ export function SandingRoiCalculator() {
                             onChange={(v) => updateQty(p.id, v)}
                             className="w-28"
                           />
+                        </td>
+                        <td className="py-3 text-right">
+                          <div className="flex justify-end">
+                            <SidesToggle value={sidesById[p.id] ?? p.sides} onChange={(v) => setSides(p.id, v)} />
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -535,6 +578,22 @@ export function SandingRoiCalculator() {
             >
               {COUNTRIES.map((c) => (
                 <option key={c.code} value={c.code}>{c.name}</option>
+              ))}
+            </select>
+          </FieldRow>
+
+          <FieldRow
+            label="Primary material"
+            hint="Sets the sanding feed speed — harder or lacquered parts run slower."
+            tooltip="Material affects how fast pieces can be fed while still getting a good finish. Softwood feeds fastest; hardwood and lacquer/primer run slower, which increases machine time."
+          >
+            <select
+              value={material}
+              onChange={(e) => setMaterial(e.target.value as MaterialCode)}
+              className="rounded-md border border-[var(--color-paper-dark)] bg-[var(--color-paper)] px-3 py-2 text-[0.95rem] font-medium text-[var(--color-ink-900)] outline-none transition-colors focus:border-[var(--color-navy-900)] focus:ring-2 focus:ring-[var(--color-navy-900)]/15"
+            >
+              {MATERIALS.map((m) => (
+                <option key={m.code} value={m.code}>{m.name}</option>
               ))}
             </select>
           </FieldRow>
@@ -667,7 +726,7 @@ export function SandingRoiCalculator() {
             {displayedSolutions.map(({ solution, labels }) => {
               const isSel = selectedSolutionName === solution.name;
               const selAuto = automationSelected[solution.name] ?? new Set<string>();
-              const m = calcSolution(solution, roiItems, operatorHoursPerWeek, eurPerHour, availableShifts, selAuto);
+              const m = calcSolution(solution, roiItems, operatorHoursPerWeek, eurPerHour, availableShifts, materialFactor, selAuto);
               return (
                 <button
                   key={solution.name}
@@ -1196,6 +1255,31 @@ function SolutionMetric({ label, value, highlight }: { label: string; value: str
       <span className={cn("text-sm font-semibold", highlight ? "text-[var(--color-ink-900)]" : "text-[var(--color-ink-700)]")}>
         {value}
       </span>
+    </div>
+  );
+}
+
+function SidesToggle({ value, onChange }: { value: 1 | 2; onChange: (v: 1 | 2) => void }) {
+  return (
+    <div className="flex overflow-hidden rounded-md border border-[var(--color-paper-dark)]">
+      {([1, 2] as const).map((s) => (
+        <button
+          key={s}
+          type="button"
+          onClick={() => onChange(s)}
+          aria-pressed={value === s}
+          aria-label={s === 1 ? "One side" : "Both sides"}
+          className={cn(
+            "flex h-9 w-9 items-center justify-center text-sm font-semibold transition-colors",
+            s > 1 && "border-l border-[var(--color-paper-dark)]",
+            value === s
+              ? "bg-[var(--color-navy-900)] text-[var(--color-cream-50)]"
+              : "bg-[var(--color-paper)] text-[var(--color-ink-900)] hover:bg-[var(--color-paper-dark)]",
+          )}
+        >
+          {s}
+        </button>
+      ))}
     </div>
   );
 }
