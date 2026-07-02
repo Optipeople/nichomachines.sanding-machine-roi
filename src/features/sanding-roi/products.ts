@@ -33,15 +33,15 @@ export type Product = {
 
 export const PRODUCTS: readonly Product[] = [
   // Flat panels & cabinet parts (small → large)
-  { id: "Solid-Wood Panel",  name: "Glued board, calibration", size: "1200 × 600 × 27 mm", image: "/products/solid-wood-panel.png", category: "flat", sides: 2 },
-  { id: "Sliding Door",      name: "Wardrobe front panel",     size: "1051 × 568.5 × 16 mm", image: "/products/sliding-door.png",      category: "flat", sides: 2 },
-  { id: "Hinge Door",        name: "Hinged cabinet door",      size: "702 × 368 × 17 mm",    image: "/products/hinge-door.png",        category: "flat", sides: 2 },
-  { id: "Cabinet Side",      name: "Cabinet gable",            size: "1058 × 379.5 × 23 mm", image: "/products/cabinet-side.png",      category: "flat", sides: 2 },
-  { id: "Tall Cabinet Side", name: "Full-height gable",        size: "2125 × 560 × 16 mm",   image: "/products/tall-cabinet-side.png", category: "flat", sides: 2 },
-  { id: "Fixed Shelf",       name: "Shelf panel",              size: "381 × 387 × 16 mm",    image: "/products/fixed-shelf.png",       category: "flat", sides: 2 },
-  { id: "Drawer Front",      name: "Drawer face",              size: "368 × 115.3 × 17 mm",  image: "/products/drawer-front.png",      category: "flat", sides: 1 },
-  { id: "Plinth Front",      name: "Plinth / kickboard",       size: "741.6 × 57.3 × 19 mm", image: "/products/plinth-front.png",      category: "flat", sides: 1 },
+  { id: "Solid-Wood Panel",  name: "Glued board, calibration", size: "1200 × 600 × 27 mm", image: "/products/solid-wood-panel.svg", category: "flat", sides: 2 },
+  { id: "Sliding Door",      name: "Wardrobe front panel",     size: "1051 × 568.5 × 16 mm", image: "/products/sliding-door.svg",      category: "flat", sides: 2 },
+  { id: "Hinge Door",        name: "Hinged cabinet door",      size: "702 × 368 × 17 mm",    image: "/products/hinge-door.svg",        category: "flat", sides: 2 },
+  { id: "Cabinet Side",      name: "Cabinet gable",            size: "1058 × 379.5 × 23 mm", image: "/products/cabinet-side.svg",      category: "flat", sides: 2 },
+  { id: "Tall Cabinet Side", name: "Full-height gable",        size: "2125 × 560 × 16 mm",   image: "/products/tall-cabinet-side.svg", category: "flat", sides: 2 },
+  { id: "Fixed Shelf",       name: "Shelf panel",              size: "381 × 387 × 16 mm",    image: "/products/fixed-shelf.svg",       category: "flat", sides: 2 },
+  { id: "Drawer Front",      name: "Drawer face",              size: "368 × 115.3 × 17 mm",  image: "/products/drawer-front.svg",      category: "flat", sides: 1 },
+  { id: "Plinth Front",      name: "Plinth / kickboard",       size: "741.6 × 57.3 × 19 mm", image: "/products/plinth-front.svg",      category: "flat", sides: 1 },
   // Profiled / shaped parts — need a brush sander (FR650 / FHDR1300)
-  { id: "Raised-Panel Door", name: "Profiled door face",       size: "597 × 397 × 19 mm",  image: "/products/raised-panel-door.png", category: "profiled", sides: 1 },
-  { id: "Profiled Moulding", name: "Shaped edge / profile",    size: "2400 × 60 × 20 mm",  image: "/products/profiled-moulding.png", category: "profiled", sides: 1 },
+  { id: "Raised-Panel Door", name: "Profiled door face",       size: "597 × 397 × 19 mm",  image: "/products/raised-panel-door.svg", category: "profiled", sides: 1 },
+  { id: "Profiled Moulding", name: "Shaped edge / profile",    size: "2400 × 60 × 20 mm",  image: "/products/profiled-moulding.svg", category: "profiled", sides: 1 },
 ];
