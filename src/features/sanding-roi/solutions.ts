@@ -184,6 +184,39 @@ export function canProcess(
   return bestPerPieceSec(p.size, s.maxWorkingWidthMm, s.minWorkLengthMm, s.feedSpeedMpm) !== null;
 }
 
+/**
+ * Båndudnyttelse (0–1) for ét emne på en maskine: faktisk slebet areal pr. minut
+ * ÷ teoretisk maks (båndbredde × fremføringshastighed) — samme tal som NM's ark.
+ */
+export function beltUtilisation(s: SolutionVariant, size: string): number | null {
+  const sec = bestPerPieceSec(size, s.maxWorkingWidthMm, s.minWorkLengthMm, s.feedSpeedMpm);
+  if (sec === null || sec <= 0) return null;
+  const [a, b] = planarDims(size);
+  const pieceAreaM2 = (a / 1000) * (b / 1000);
+  const actualM2PerMin = (pieceAreaM2 * 60) / sec;
+  const theoreticalM2PerMin = (s.maxWorkingWidthMm / 1000) * s.feedSpeedMpm;
+  if (theoreticalM2PerMin <= 0) return null;
+  return actualM2PerMin / theoreticalM2PerMin;
+}
+
+/** Areal-vægtet gennemsnitlig båndudnyttelse (0–1) over en emne-mix, eller null. */
+export function avgBeltUtilisation(
+  s: SolutionVariant,
+  items: { size: string; unitsPerWeek: number }[],
+): number | null {
+  let wSum = 0;
+  let uSum = 0;
+  for (const it of items) {
+    const u = beltUtilisation(s, it.size);
+    if (u === null) continue;
+    const [a, b] = planarDims(it.size);
+    const w = Math.max(0, it.unitsPerWeek) * (a / 1000) * (b / 1000);
+    wSum += w;
+    uSum += w * u;
+  }
+  return wSum > 0 ? uSum / wSum : null;
+}
+
 // ── automation add-ons (genbruges på tværs af maskiner) ─────────────────────────
 
 const AUTO_INFEED_RETURN: AutomationOption = {

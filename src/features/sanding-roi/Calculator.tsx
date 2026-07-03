@@ -10,7 +10,7 @@ import {
 import { ArrowLeft, ArrowRight, Check, Info, Loader2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { PRODUCTS, type Product } from "./products";
-import { SOLUTIONS, canProcess, type SolutionVariant } from "./solutions";
+import { SOLUTIONS, canProcess, avgBeltUtilisation, type SolutionVariant } from "./solutions";
 import {
   COUNTRIES,
   MATERIALS,
@@ -727,6 +727,10 @@ export function SandingRoiCalculator() {
               const isSel = selectedSolutionName === solution.name;
               const selAuto = automationSelected[solution.name] ?? new Set<string>();
               const m = calcSolution(solution, roiItems, operatorHoursPerWeek, eurPerHour, availableShifts, materialFactor, selAuto);
+              const beltUtil = avgBeltUtilisation(solution, roiItems.map((it) => {
+                const prod = activeProducts.find((p) => p.id === it.id);
+                return { size: prod?.size ?? "", unitsPerWeek: it.unitsPerWeek };
+              }));
               return (
                 <button
                   key={solution.name}
@@ -789,6 +793,9 @@ export function SandingRoiCalculator() {
                   {/* Core metrics */}
                   <div className="mt-4 grid gap-2 text-sm">
                     <SolutionMetric label="Machine hours / week" value={`${m.weeklyMachineHours.toFixed(1)} hrs`} highlight />
+                    {beltUtil !== null && (
+                      <SolutionMetric label="Belt utilisation" value={`~ ${Math.round(beltUtil * 100)}%`} />
+                    )}
                     <SolutionMetric
                       label="Payback period"
                       value={

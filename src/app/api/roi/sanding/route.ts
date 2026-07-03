@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { site } from "@/lib/site";
 import { SubmissionSchema } from "@/features/sanding-roi/schema";
-import { SOLUTIONS, canProcess, type SolutionVariant } from "@/features/sanding-roi/solutions";
+import { SOLUTIONS, canProcess, beltUtilisation, type SolutionVariant } from "@/features/sanding-roi/solutions";
 import { PRODUCTS } from "@/features/sanding-roi/products";
 import {
   SHIFT_WEEKLY_HOURS,
@@ -216,9 +216,11 @@ function buildHtml(data: {
       const sec = Math.round((base * p.passes) / (materialFactor || 1));
       const rawWeeklyP = (p.unitsPerWeek * sec) / 3600;
       const machWeeklyP = rawWeeklyP / (m.oee / 100);
+      const util = beltUtilisation(s, p.size);
       return `<tr>
         <td style="font-size:12px;color:#444;padding:2px 8px 2px 16px;">${e(p.id)} <span style="color:#aaa;">(${p.passes}× gennemløb)</span></td>
         <td style="font-size:12px;color:#666;padding:2px 8px;text-align:right;">${sec} sek</td>
+        <td style="font-size:12px;color:#666;padding:2px 8px;text-align:right;">${util !== null ? Math.round(util * 100) + " %" : "—"}</td>
         <td style="font-size:12px;color:#666;padding:2px 8px;text-align:right;">${p.unitsPerWeek.toLocaleString("da-DK")} stk/uge</td>
         <td style="font-size:12px;color:#666;padding:2px 0;text-align:right;">${fmtNum(machWeeklyP, 2)} t/uge</td>
       </tr>`;
@@ -261,6 +263,7 @@ function buildHtml(data: {
             <tr>
               <th style="font-size:11px;color:#aaa;padding:2px 8px 2px 16px;text-align:left;">Produkt</th>
               <th style="font-size:11px;color:#aaa;padding:2px 8px;text-align:right;">Cyklus</th>
+              <th style="font-size:11px;color:#aaa;padding:2px 8px;text-align:right;">Bånd%</th>
               <th style="font-size:11px;color:#aaa;padding:2px 8px;text-align:right;">Antal/uge</th>
               <th style="font-size:11px;color:#aaa;padding:2px 0;text-align:right;">Maskin-t/uge</th>
             </tr>
