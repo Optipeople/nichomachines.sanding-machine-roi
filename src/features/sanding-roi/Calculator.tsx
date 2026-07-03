@@ -55,9 +55,9 @@ export function SandingRoiCalculator() {
   const [automationSelected, setAutomationSelected] = useState<Record<string, Set<string>>>({});
   const [country, setCountry] = useState<CountryCode>("DK");
   const [availableShifts, setAvailableShifts] = useState<1 | 2 | 3>(1);
-  const [material, setMaterial] = useState<MaterialCode>("board");
-  // Per-product override of how many faces are sanded (falls back to the product default)
-  const [sidesById, setSidesById] = useState<Record<string, 1 | 2>>({});
+  const [material, setMaterial] = useState<MaterialCode>("mdf");
+  // Per-product override of the number of sanding passes (falls back to the product default)
+  const [passesById, setPassesById] = useState<Record<string, number>>({});
 
   const selectedCountry = COUNTRIES.find((c) => c.code === country)!;
   const eurPerHour = selectedCountry.eurPerHour;
@@ -100,17 +100,17 @@ export function SandingRoiCalculator() {
       activeProducts.map((p) => ({
         id: p.id,
         unitsPerWeek: quantities[p.id] ?? 0,
-        sides: sidesById[p.id] ?? p.sides,
+        passes: passesById[p.id] ?? p.passes,
       })),
-    [activeProducts, quantities, sidesById],
+    [activeProducts, quantities, passesById],
   );
 
   const updateQty = (id: string, value: number) => {
     setQuantities((prev) => ({ ...prev, [id]: value }));
   };
 
-  const setSides = (id: string, value: 1 | 2) => {
-    setSidesById((prev) => ({ ...prev, [id]: value }));
+  const setPasses = (id: string, value: number) => {
+    setPassesById((prev) => ({ ...prev, [id]: value }));
   };
 
   const firstName = (contact.name.trim().split(/\s+/)[0] || "there").trim();
@@ -203,7 +203,7 @@ export function SandingRoiCalculator() {
         name: p.name,
         size: p.size,
         unitsPerWeek: quantities[p.id] ?? 0,
-        sides: sidesById[p.id] ?? p.sides,
+        passes: passesById[p.id] ?? p.passes,
       })),
       operatorHoursPerWeek,
       availableShifts,
@@ -244,8 +244,8 @@ export function SandingRoiCalculator() {
     setOperatorHoursPerWeek(40);
     setCountry("DK");
     setAvailableShifts(1);
-    setMaterial("board");
-    setSidesById({});
+    setMaterial("mdf");
+    setPassesById({});
     setContact({ name: "", email: "", job: "", company: "" });
     setErrors({});
     setFormError(null);
@@ -478,10 +478,10 @@ export function SandingRoiCalculator() {
                     </div>
                     <div className="mt-3 flex items-center justify-between gap-3 border-t border-[var(--color-paper-dark)] pt-3">
                       <span className="inline-flex items-center gap-1 text-eyebrow text-[var(--color-slate-500)]">
-                        Sanded sides
-                        <InfoTooltip text="How many faces of this part are sanded. Both sides doubles the machine time for the part." />
+                        Passes
+                        <InfoTooltip text="Number of sanding runs through the machine: both faces, and any re-sanding (e.g. intermediate sanding when lacquering). Each pass adds machine time." />
                       </span>
-                      <SidesToggle value={sidesById[p.id] ?? p.sides} onChange={(v) => setSides(p.id, v)} />
+                      <PassesControl value={passesById[p.id] ?? p.passes} onChange={(v) => setPasses(p.id, v)} />
                     </div>
                   </li>
                 ))}
@@ -503,8 +503,8 @@ export function SandingRoiCalculator() {
                       </th>
                       <th className="pb-3 text-right text-eyebrow">
                         <span className="inline-flex items-center justify-end gap-1">
-                          Sides
-                          <InfoTooltip text="How many faces are sanded. Both sides doubles the machine time for that part." />
+                          Passes
+                          <InfoTooltip text="Number of sanding runs: both faces, and any re-sanding (e.g. intermediate sanding when lacquering). Each pass adds machine time." />
                         </span>
                       </th>
                     </tr>
@@ -539,7 +539,7 @@ export function SandingRoiCalculator() {
                         </td>
                         <td className="py-3 text-right">
                           <div className="flex justify-end">
-                            <SidesToggle value={sidesById[p.id] ?? p.sides} onChange={(v) => setSides(p.id, v)} />
+                            <PassesControl value={passesById[p.id] ?? p.passes} onChange={(v) => setPasses(p.id, v)} />
                           </div>
                         </td>
                       </tr>
@@ -1259,16 +1259,16 @@ function SolutionMetric({ label, value, highlight }: { label: string; value: str
   );
 }
 
-function SidesToggle({ value, onChange }: { value: 1 | 2; onChange: (v: 1 | 2) => void }) {
+function PassesControl({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   return (
     <div className="flex overflow-hidden rounded-md border border-[var(--color-paper-dark)]">
-      {([1, 2] as const).map((s) => (
+      {([1, 2, 3, 4] as const).map((s) => (
         <button
           key={s}
           type="button"
           onClick={() => onChange(s)}
           aria-pressed={value === s}
-          aria-label={s === 1 ? "One side" : "Both sides"}
+          aria-label={`${s} pass${s > 1 ? "es" : ""}`}
           className={cn(
             "flex h-9 w-9 items-center justify-center text-sm font-semibold transition-colors",
             s > 1 && "border-l border-[var(--color-paper-dark)]",

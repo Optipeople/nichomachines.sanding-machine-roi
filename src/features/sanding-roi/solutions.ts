@@ -111,8 +111,8 @@ function thicknessMm(size: string): number {
 }
 
 /**
- * Fremføringslængden (mm) i den bedste gyldige orientering, eller null hvis
- * emnet ikke kan føres igennem maskinen.
+ * Bedste gyldige orientering af emnet: fremføringslængde + tvær-bredde (mm),
+ * eller null hvis emnet ikke kan føres igennem maskinen.
  *
  * Emnet kan vendes på to måder:
  *   B) korteste kant i fremføringen (længste på tværs) — kræver længste ≤ bredde
@@ -120,13 +120,23 @@ function thicknessMm(size: string): number {
  *   A) længste kant i fremføringen (korteste på tværs) — kræver længste ≥ min. længde.
  * Passer ingen af dem, er emnet for kort (eller for bredt) til maskinen.
  */
-function feedLengthMm(size: string, maxWidthMm: number, minWorkLengthMm: number): number | null {
+function orient(
+  size: string,
+  maxWidthMm: number,
+  minWorkLengthMm: number,
+): { feed: number; across: number } | null {
   const [a, b] = planarDims(size);
   const small = Math.min(a, b);
   const large = Math.max(a, b);
-  if (large <= maxWidthMm && small >= minWorkLengthMm) return small; // orientering B
-  if (small <= maxWidthMm && large >= minWorkLengthMm) return large; // orientering A
+  if (large <= maxWidthMm && small >= minWorkLengthMm) return { feed: small, across: large }; // B
+  if (small <= maxWidthMm && large >= minWorkLengthMm) return { feed: large, across: small }; // A
   return null; // kan ikke føres igennem
+}
+
+/** Hvor mange emner der kan køre side om side over båndet (mindst 1). */
+function piecesAcross(acrossMm: number, maxWidthMm: number): number {
+  if (acrossMm <= 0) return 1;
+  return Math.max(1, Math.floor(maxWidthMm / acrossMm));
 }
 
 /** Cyklustid i sekunder for én fremføringslængde ved given hastighed. */
@@ -136,18 +146,22 @@ function cycleTimeSec(feedLenMm: number, feedSpeedMpm: number): number {
 }
 
 /**
- * Byg processingTimeSec-mappet: tid pr. emne for ÉN slibet side ved maskinens
- * basis-fremføringshastighed. Antal sider og materiale-faktor lægges på ved
- * kørsel (se calcSolution), så kunden kan ændre dem uden at røre data her.
- * For emner maskinen ikke kan føre (feedLengthMm === null) bruges længste mål
- * som worst-case tid — maskinen udelukkes alligevel af canProcess.
+ * Byg processingTimeSec-mappet: effektiv maskintid pr. emne for ÉT gennemløb ved
+ * maskinens basis-fremføringshastighed. Tiden er delt med hvor mange emner der
+ * kan køre side om side over båndet (båndudnyttelse), så smalle emner ikke
+ * spilder båndbredden. Antal gennemløb og materiale-faktor lægges på ved kørsel
+ * (se calcSolution). For emner maskinen ikke kan føre bruges længste mål som
+ * worst-case — maskinen udelukkes alligevel af canProcess.
  */
 function buildTimes(feedSpeedMpm: number, maxWidthMm: number, minWorkLengthMm: number): Record<string, number> {
   return Object.fromEntries(
     PRODUCTS.map((p) => {
-      const fl = feedLengthMm(p.size, maxWidthMm, minWorkLengthMm);
-      const lenForTime = fl ?? Math.max(...planarDims(p.size));
-      return [p.id, Math.max(1, Math.round(cycleTimeSec(lenForTime, feedSpeedMpm)))];
+      const o = orient(p.size, maxWidthMm, minWorkLengthMm);
+      const [a, b] = planarDims(p.size);
+      const feed = o ? o.feed : Math.max(a, b);
+      const across = o ? o.across : Math.min(a, b);
+      const perPass = cycleTimeSec(feed, feedSpeedMpm) / piecesAcross(across, maxWidthMm);
+      return [p.id, Math.max(1, Math.round(perPass))];
     }),
   );
 }
@@ -163,7 +177,7 @@ export function canProcess(
   if (!s.handles.includes(p.category)) return false;
   const t = thicknessMm(p.size);
   if (t > 0 && (t < s.minThicknessMm || t > s.maxThicknessMm)) return false;
-  return feedLengthMm(p.size, s.maxWorkingWidthMm, s.minWorkLengthMm) !== null;
+  return orient(p.size, s.maxWorkingWidthMm, s.minWorkLengthMm) !== null;
 }
 
 // ── automation add-ons (genbruges på tværs af maskiner) ─────────────────────────

@@ -14,7 +14,7 @@ export const SubmissionSchema = z.object({
         name: z.string().max(80),
         size: z.string().max(80),
         unitsPerWeek: z.number().min(0).max(1_000_000),
-        sides: z.union([z.literal(1), z.literal(2)]),
+        passes: z.number().int().min(1).max(8),
       }),
     )
     .min(1)

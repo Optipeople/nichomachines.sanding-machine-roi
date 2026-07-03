@@ -52,10 +52,12 @@ export function fmtCurrency(eurAmount: number, eurToLocal: number, currency: str
  * ⚠ factors are indicative; tune to real production experience.
  */
 export const MATERIALS = [
-  { code: "board",    name: "MDF / chipboard",         speedFactor: 1.0 },
-  { code: "softwood", name: "Softwood (pine, spruce)", speedFactor: 1.15 },
-  { code: "hardwood", name: "Hardwood (oak, beech)",   speedFactor: 0.8 },
-  { code: "lacquer",  name: "Lacquer / primer (fine)", speedFactor: 0.65 },
+  { code: "mdf",       name: "Raw MDF / chipboard",     speedFactor: 1.0 },
+  { code: "laminated", name: "Laminated board",         speedFactor: 0.9 },
+  { code: "softwood",  name: "Softwood (pine, spruce)", speedFactor: 1.15 },
+  { code: "hardwood",  name: "Hardwood (oak, beech)",   speedFactor: 0.8 },
+  { code: "lacquered", name: "Lacquered surface",       speedFactor: 0.65 },
+  { code: "veneered",  name: "Veneered surface",        speedFactor: 0.7 },
 ] as const;
 
 export type MaterialCode = (typeof MATERIALS)[number]["code"];
@@ -65,8 +67,8 @@ export function getMaterialFactor(code: string): number {
   return MATERIALS.find((m) => m.code === code)?.speedFactor ?? 1;
 }
 
-/** One product line for the calculation: units/week and how many faces are sanded. */
-export type RoiItem = { id: string; unitsPerWeek: number; sides: number };
+/** One product line for the calculation: units/week and how many sanding passes (runs). */
+export type RoiItem = { id: string; unitsPerWeek: number; passes: number };
 
 export type RoiResult = {
   oee: number;
@@ -85,7 +87,7 @@ export type RoiResult = {
  * Core ROI calculation for one machine.
  *
  * `materialFactor` scales feed speed for the workpiece material (see MATERIALS);
- * each item's time is multiplied by its `sides` (passes) and divided by the factor.
+ * each item's time is multiplied by its number of `passes` and divided by the factor.
  * `selectedAutoNames` are the automation add-ons the customer ticked (empty = base
  * machine); they raise OEE, reduce operators and add to the investment.
  */
@@ -109,7 +111,7 @@ export function calcSolution(
 
   const factor = materialFactor > 0 ? materialFactor : 1;
   const rawWeeklyHours = items.reduce(
-    (sum, it) => sum + (it.unitsPerWeek * (s.processingTimeSec[it.id] ?? 0) * it.sides) / factor / 3600,
+    (sum, it) => sum + (it.unitsPerWeek * (s.processingTimeSec[it.id] ?? 0) * it.passes) / factor / 3600,
     0,
   );
   const weeklyMachineHours = rawWeeklyHours / (oee / 100);
