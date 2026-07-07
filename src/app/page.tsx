@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { ArrowLeft } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import { Container } from "@/components/Container";
 import { SandingRoiCalculator } from "@/features/sanding-roi/Calculator";
 
@@ -21,7 +22,7 @@ export default function HomePage() {
   return (
     <section className="pt-6 pb-20 lg:pt-8 lg:pb-28">
       <Container size="default">
-        <div className="mb-8 flex justify-start">
+        <div className="mb-8 flex items-center justify-between gap-3">
           <a
             href="https://nichomachines.com/"
             className="group inline-flex items-center gap-1.5 rounded-md text-sm font-medium text-[var(--color-ink-500)] transition-colors hover:text-[var(--color-tan-500)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-tan-500)]"
@@ -29,6 +30,13 @@ export default function HomePage() {
             <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" aria-hidden="true" />
             nichomachines.com
           </a>
+          <Link
+            href="/configurator"
+            className="group inline-flex items-center gap-1.5 rounded-md text-sm font-medium text-[var(--color-ink-500)] transition-colors hover:text-[var(--color-tan-500)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-tan-500)]"
+          >
+            Quick payback configurator
+            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+          </Link>
         </div>
         <div className="mb-10 flex items-center justify-center">
           <a
