@@ -13,7 +13,9 @@ cp .env.example .env.local   # fill in RESEND_API_KEY etc. as needed
 npm run dev
 ```
 
-The calculator is served from `/` and posts submissions to `/api/roi/sanding`.
+`/` is the focused payback configurator (pick end result → machine → payback).
+`/advanced` is the full ROI calculator (products, volumes, belt utilisation,
+capacity) which posts submissions to `/api/roi/sanding`.
 
 ## Environment variables
 

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, Check } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { SOLUTIONS } from "./solutions";
 import { FINISH_GOALS } from "./finishGoals";
@@ -37,13 +37,6 @@ export function SandingConfigurator() {
 
   return (
     <div className="min-h-[600px]">
-      <Link
-        href="/"
-        className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-[var(--color-ink-500)] transition-colors hover:text-[var(--color-tan-500)]"
-      >
-        <ArrowLeft className="size-4" aria-hidden /> Full ROI calculator
-      </Link>
-
       <p className="text-eyebrow text-[var(--color-tan-500)]">Payback configurator</p>
       <h1 className="mt-3 text-display-3 text-balance text-[var(--color-ink-900)]">
         Configure by <em className="not-italic text-[var(--color-tan-500)]">end result</em>, see the payback
@@ -188,7 +181,7 @@ export function SandingConfigurator() {
             </div>
 
             <Link
-              href="/"
+              href="/advanced"
               className="mt-6 inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--color-cream-50)] px-4 text-sm font-medium text-[var(--color-navy-900)] transition-colors hover:bg-white"
             >
               Full calculation & proposal <ArrowRight className="size-4" aria-hidden />
