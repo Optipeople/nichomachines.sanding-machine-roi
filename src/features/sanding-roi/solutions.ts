@@ -13,18 +13,20 @@
  *
  * Throughput model
  * ----------------
- * A wide-belt / brush sander is a through-feed machine: the cycle time per
- * workpiece is driven by the panel length and the feed speed (m/min), NOT by a
- * fixed per-product number. We therefore derive `processingTimeSec` for every
- * product from its real size (products.ts) and the machine's effective feed
- * speed, so the calculator always stays in sync with the product list.
+ * A wide-belt / brush sander is a through-feed machine, so `processingTimeSec`
+ * is derived for every product from its real size (products.ts) and the
+ * machine's feed speed — the calculator always stays in sync with the product
+ * list. For each product we store the effective machine time for ONE pass:
  *
- *   cycle = (feedLength + FEED_GAP) / feedSpeed
+ *   perPiecePerPass = (feedLength/1000 + FEED_GAP) / feedSpeed  ÷  piecesAcross
  *
- * The workpiece is oriented so its longest planar edge runs across the belt
- * whenever it fits within the machine's working width; the remaining (shorter)
- * edge then becomes the feed length. If the longest edge exceeds the working
- * width it must run along the feed direction instead.
+ * where the piece is oriented to the faster of its two orientations, and
+ * `piecesAcross` is how many fit side by side over the belt including the gap
+ * between them (belt utilisation — see NM's "Pudser båndudnyttelse" sheet).
+ * At run time calcSolution() multiplies this by the number of passes and
+ * divides by the material feed-speed factor. Feasibility (canProcess) also
+ * checks category, min work length and thickness range. beltUtilisation()
+ * exposes the sheet's utilisation figure for display.
  *
  * automationOptions: optional add-ons that improve OEE and/or reduce the number
  * of operators (automatic infeed/return, dust extraction, remote monitoring).
