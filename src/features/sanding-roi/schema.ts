@@ -7,6 +7,8 @@ export const SubmissionSchema = z.object({
     job: z.string().min(1).max(120),
     company: z.string().max(160).optional(),
   }),
+  // Volumes are optional: the funnel can request a proposal from the quick
+  // payback (result + hours) without going through the detailed refine step.
   products: z
     .array(
       z.object({
@@ -17,12 +19,13 @@ export const SubmissionSchema = z.object({
         passes: z.number().int().min(1).max(8),
       }),
     )
-    .min(1)
     .max(50),
   operatorHoursPerWeek: z.number().min(0).max(10_000),
   availableShifts: z.union([z.literal(1), z.literal(2), z.literal(3)]),
   country: z.string().min(2).max(2),
   material: z.string().min(1).max(20),
+  /** Chosen end result (finish goal id) */
+  goal: z.string().max(40).optional(),
   selectedSolution: z
     .object({
       name: z.string().min(1).max(160),
